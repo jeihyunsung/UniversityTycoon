@@ -50,6 +50,13 @@ class BuildingState(BaseModel):
     cafeteria: int
 
 
+class AdmissionCriteria(BaseModel):
+    math: int = 5
+    science: int = 5
+    english: int = 5
+    korean: int = 5
+
+
 class SaveState(BaseModel):
     user_id: str = Field(alias="userId")
     year: int
@@ -61,6 +68,9 @@ class SaveState(BaseModel):
     buildings: BuildingState
     departments: list[DepartmentId]
     logs: list[str] = Field(default_factory=list)
+    admission_criteria: AdmissionCriteria = Field(
+        default_factory=AdmissionCriteria, alias="admissionCriteria"
+    )
 
 
 class GameResult(BaseModel):

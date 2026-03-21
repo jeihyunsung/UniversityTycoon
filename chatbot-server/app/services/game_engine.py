@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.models.schemas import (
+    AdmissionCriteria,
     AdmissionPolicy,
     BuildingState,
     BuildingType,
@@ -50,6 +51,7 @@ class DepartmentDefinition:
     field: str
     capacity: int
     reputation_bonus: int
+    education_boost: int
     description: str
 
 
@@ -61,10 +63,10 @@ BUILDINGS: dict[BuildingType, BuildingDefinition] = {
 }
 
 DEPARTMENTS: dict[DepartmentId, DepartmentDefinition] = {
-    "art": DepartmentDefinition("미술학과", 120, "arts", 35, 4, "예체능 명성 +4 / 학생 수용 +35"),
-    "computer": DepartmentDefinition("컴퓨터공학과", 150, "engineering", 45, 4, "공학 명성 +4 / 학생 수용 +45"),
-    "medical": DepartmentDefinition("의학과", 180, "medical", 30, 4, "의학 명성 +4 / 학생 수용 +30"),
-    "humanities": DepartmentDefinition("인문학과", 100, "humanities", 40, 4, "기초학문 명성 +4 / 학생 수용 +40"),
+    "art": DepartmentDefinition("미술학과", 120, "arts", 35, 4, 4, "예체능 명성 +4 / 학생 수용 +35"),
+    "computer": DepartmentDefinition("컴퓨터공학과", 150, "engineering", 45, 4, 5, "공학 명성 +4 / 학생 수용 +45"),
+    "medical": DepartmentDefinition("의학과", 180, "medical", 30, 4, 6, "의학 명성 +4 / 학생 수용 +30"),
+    "humanities": DepartmentDefinition("인문학과", 100, "humanities", 40, 4, 4, "기초학문 명성 +4 / 학생 수용 +40"),
 }
 
 
@@ -229,6 +231,12 @@ class GameEngine:
             return self._error("잘못된 입학 정책 요청입니다.", "INVALID_POLICY")
 
         save.admission_policy = policy
+        criteria_presets: dict[AdmissionPolicy, AdmissionCriteria] = {
+            "easy": AdmissionCriteria(math=2, science=2, english=2, korean=2),
+            "normal": AdmissionCriteria(math=5, science=5, english=5, korean=5),
+            "hard": AdmissionCriteria(math=7, science=7, english=7, korean=7),
+        }
+        save.admission_criteria = criteria_presets[policy]
         log = f"입학 정책 변경: {self._policy_label(policy)}"
         save.logs = [log, *save.logs][:5]
         save_repository.put(request.user.kakao_user_key, save)
@@ -264,6 +272,7 @@ class GameEngine:
             buildings=BuildingState(classroom=1, dormitory=1, laboratory=0, cafeteria=0),
             departments=["humanities"],
             logs=["작은 캠퍼스로 새 학기를 시작했습니다."],
+            admissionCriteria=AdmissionCriteria(math=5, science=5, english=5, korean=5),
         )
 
     def _get_or_create(self, user_key: str) -> SaveState:
@@ -337,22 +346,62 @@ class GameEngine:
         return save.buildings.laboratory * 10 + len(save.departments) * 2
 
     def _education_power(self, save: SaveState) -> int:
-        return save.buildings.classroom * 8 + save.buildings.cafeteria * 2 + len(save.departments) * 4
+        dept_boost = sum(DEPARTMENTS[d].education_boost for d in save.departments)
+        return save.buildings.classroom * 8 + save.buildings.cafeteria * 2 + dept_boost
 
     def _apply_graduation(self, save: SaveState) -> list[str]:
         graduate_count = max(18, int(save.students.enrolled * 0.24))
-        reputation_gain = max(8, graduate_count // 2 + self._research_power(save) // 3)
+        education_power = self._education_power(save)
+        research_power = self._research_power(save)
+        score = save.students.average_level + education_power * 0.2 + research_power * 0.12
+
+        professor = int(graduate_count * self._clamp(score / 180, 0.04, 0.12))
+        startup = int(graduate_count * self._clamp(score / 120, 0.06, 0.16))
+        enterprise = int(graduate_count * self._clamp(score / 80, 0.18, 0.32))
+        general = max(0, graduate_count - professor - startup - enterprise)
+        gained_reputation = professor * 5 + startup * 10 + enterprise * 3 + general
+
+        field = self._leading_reputation_field(save)
+        current = getattr(save.reputation, field)
+        setattr(save.reputation, field, current + gained_reputation)
         save.students.enrolled = max(20, save.students.enrolled - graduate_count)
-        save.reputation.humanities += reputation_gain
-        return [f"졸업생 {graduate_count}명 배출", f"졸업 성과로 총 명성 +{reputation_gain}"]
+
+        return [
+            f"졸업생 {graduate_count}명 배출: 교수 {professor}, 창업 {startup}, 대기업 {enterprise}, 일반 {general}",
+            f"{self._field_label(field)} 명성이 {gained_reputation} 상승했습니다.",
+        ]
 
     def _apply_admission(self, save: SaveState) -> list[str]:
-        policy_bonus = {"easy": 22, "normal": 12, "hard": 0}[save.admission_policy]
-        level_bonus = {"easy": 0.2, "normal": 0.5, "hard": 1.0}[save.admission_policy]
-        freshmen = min(self._capacity(save), 40 + save.buildings.dormitory * 18 + policy_bonus)
-        save.students.enrolled = min(self._capacity(save), save.students.enrolled + freshmen)
-        save.students.average_level = round(min(9.0, save.students.average_level + level_bonus), 1)
-        return [f"신입생 {freshmen}명 입학", f"학생 평균 수준 {save.students.average_level}"]
+        criteria = save.admission_criteria
+        criteria_avg = (criteria.math + criteria.science + criteria.english + criteria.korean) / 4
+        difficulty_penalty = round(criteria_avg * 7)
+        dorm_capacity = save.buildings.dormitory * 40
+        freshmen = max(20, 110 - difficulty_penalty + round(dorm_capacity * 0.35))
+        capacity = self._capacity(save)
+        next_enrolled = min(capacity, freshmen + int(save.students.enrolled * 0.75))
+        next_level = max(1.0, 10 - criteria_avg)
+
+        save.students.enrolled = next_enrolled
+        save.students.average_level = round(next_level, 1)
+        return [
+            f"신입생 {freshmen}명이 지원했고, 현재 재학생은 {next_enrolled}명입니다.",
+            f"학생 평균 수준 {save.students.average_level}",
+        ]
+
+    def _clamp(self, value: float, min_val: float, max_val: float) -> float:
+        return min(max_val, max(min_val, value))
+
+    def _leading_reputation_field(self, save: SaveState) -> str:
+        fields = [
+            ("arts", save.reputation.arts),
+            ("engineering", save.reputation.engineering),
+            ("medical", save.reputation.medical),
+            ("humanities", save.reputation.humanities),
+        ]
+        return max(fields, key=lambda x: x[1])[0]
+
+    def _field_label(self, field: str) -> str:
+        return {"arts": "예체능", "engineering": "공학", "medical": "의학", "humanities": "기초학문"}[field]
 
     def _policy_label(self, policy: AdmissionPolicy) -> str:
         return {"easy": "쉬움", "normal": "보통", "hard": "엄격"}[policy]
