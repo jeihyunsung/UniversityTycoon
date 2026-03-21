@@ -15,7 +15,10 @@ from app.models.schemas import (
     StudentState,
 )
 from app.repositories.base import SaveRepository
+from app.services.events import EVENTS, apply_event, pick_event
 from app.services.image_service import ImageGenerator, NullImageGenerator, PromptBuilder
+from app.services.quests import check_and_apply as check_quests, get_quest_summary
+from app.services.titles import compute_dynamic_title
 
 
 MONTH_LABELS = {
@@ -76,8 +79,8 @@ class GameEngine:
         self._image_gen = image_generator or NullImageGenerator()
 
     async def start_game(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = self._initial_save(request.user.kakao_user_key)
-        await repo.put(request.user.kakao_user_key, save)
+        save = self._initial_save(request.user.id)
+        await repo.put(request.user.id, save)
         prompt, neg = PromptBuilder.build("start_game", "", save.month)
         image_url = await self._image_gen.generate(prompt, neg)
         return GameResult(
@@ -89,20 +92,32 @@ class GameEngine:
         )
 
     async def load_status(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         total_reputation = self._total_reputation(save)
+        quest_summary = get_quest_summary(save)
+        dynamic_title = compute_dynamic_title(save)
         return GameResult(
             message=(
                 f"{save.year}년 {MONTH_LABELS[save.month]}입니다. "
-                f"예산 {save.budget}G / 총 명성 {total_reputation} / 재학생 {save.students.enrolled}명"
+                f"예산 {save.budget}G / 총 명성 {total_reputation} / 재학생 {save.students.enrolled}명\n"
+                f"🏷 {dynamic_title} | 🎓 {save.title}\n"
+                f"{quest_summary}"
             ),
-            quickReplies=["다음 달 진행", "건물 건설", "학과 개설", "입학 정책", "지난 결과 보기"],
+            quickReplies=["다음 달 진행", "건물 건설", "학과 개설", "입학 정책", "퀘스트", "지난 결과 보기"],
             logs=save.logs[:1],
             save=save,
         )
 
     async def advance_turn(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
+
+        # Expire unanswered choice event
+        if save.pending_event is not None:
+            expired = EVENTS.get(save.pending_event)
+            if expired:
+                save.logs = [f"⏰ '{expired.name}' 이벤트에 응답하지 않아 기회가 사라졌습니다.", *save.logs][:5]
+            save.pending_event = None
+
         next_month = 1 if save.month == 12 else save.month + 1
         next_year = save.year + 1 if save.month == 12 else save.year
         monthly_delta = self._monthly_budget_delta(save)
@@ -119,8 +134,27 @@ class GameEngine:
         if save.month == 10:
             logs.append("10월입니다. 입학 정책을 점검할 시기입니다.")
 
+        # Event judgment
+        event = pick_event(save)
+        if event is not None:
+            if event.event_type in ("positive", "negative"):
+                event_logs = apply_event(save, event)
+                logs.append(f"[{event.name}] {event.description}")
+                logs.extend(event_logs)
+            elif event.event_type == "choice":
+                save.pending_event = event.id
+                logs.append(f"📢 {event.name}: {event.description}")
+
+        quest_logs = check_quests(save)
+        if quest_logs:
+            logs.extend(quest_logs)
+
         save.logs = [f"{save.year}년 {MONTH_LABELS[save.month]} 진입", *logs, *save.logs][:5]
-        await repo.put(request.user.kakao_user_key, save)
+        await repo.put(request.user.id, save)
+
+        quick_replies = ["다음 달 진행", "건물 건설", "학과 개설", "내 대학 현황"]
+        if save.pending_event is not None:
+            quick_replies = ["선택 A", "선택 B", "내 대학 현황"]
 
         return GameResult(
             message=(
@@ -128,12 +162,12 @@ class GameEngine:
                 f"이번 달 운영 변화는 {monthly_delta:+}G입니다."
             ),
             logs=logs,
-            quickReplies=["다음 달 진행", "건물 건설", "학과 개설", "내 대학 현황"],
+            quickReplies=quick_replies,
             save=save,
         )
 
     async def build_menu(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         options = [
             {
                 "label": f"{definition.label} {definition.cost}G",
@@ -149,7 +183,7 @@ class GameEngine:
         )
 
     async def build(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         building_type = self._extract_building_type(request)
         if building_type is None:
             return self._error("잘못된 건물 요청입니다.", "INVALID_ACTION")
@@ -165,22 +199,27 @@ class GameEngine:
         setattr(save.buildings, building_type, getattr(save.buildings, building_type) + 1)
         save.budget -= definition.cost
         log = f"{definition.label} 건설 완료"
-        save.logs = [log, *save.logs][:5]
-        await repo.put(request.user.kakao_user_key, save)
+        quest_logs = check_quests(save)
+        if quest_logs:
+            log_entries = [log, *quest_logs]
+        else:
+            log_entries = [log]
+        save.logs = [*log_entries, *save.logs][:5]
+        await repo.put(request.user.id, save)
 
         prompt, neg = PromptBuilder.build("building", building_type, save.month)
         image_url = await self._image_gen.generate(prompt, neg)
         return GameResult(
             message=f"{definition.label}을 건설했습니다. 예산 -{definition.cost}G / {definition.description}",
             quickReplies=["계속 건설", "내 대학 현황", "다음 달 진행"],
-            logs=[log],
+            logs=log_entries,
             save=save,
             imageUrl=image_url,
             imageTitle=f"🏗️ {definition.label} 건설!",
         )
 
     async def department_menu(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         options = []
         for department_id, definition in DEPARTMENTS.items():
             opened = department_id in save.departments
@@ -195,7 +234,7 @@ class GameEngine:
         )
 
     async def department(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         department_id = self._extract_department_id(request)
         if department_id is None:
             return self._error("잘못된 학과 요청입니다.", "INVALID_ACTION")
@@ -215,22 +254,27 @@ class GameEngine:
         current_value = getattr(save.reputation, definition.field)
         setattr(save.reputation, definition.field, current_value + definition.reputation_bonus)
         log = f"{definition.label} 개설 완료"
-        save.logs = [log, *save.logs][:5]
-        await repo.put(request.user.kakao_user_key, save)
+        quest_logs = check_quests(save)
+        if quest_logs:
+            log_entries = [log, *quest_logs]
+        else:
+            log_entries = [log]
+        save.logs = [*log_entries, *save.logs][:5]
+        await repo.put(request.user.id, save)
 
         prompt, neg = PromptBuilder.build("department", department_id, save.month)
         image_url = await self._image_gen.generate(prompt, neg)
         return GameResult(
             message=f"{definition.label}를 개설했습니다. 예산 -{definition.cost}G / {definition.description}",
             quickReplies=["다른 학과 보기", "내 대학 현황", "다음 달 진행"],
-            logs=[log],
+            logs=log_entries,
             save=save,
             imageUrl=image_url,
             imageTitle=f"📚 {definition.label} 개설!",
         )
 
     async def admission_menu(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         return GameResult(
             message=(
                 f"현재 입학 정책은 {self._policy_label(save.admission_policy)}입니다. "
@@ -241,7 +285,7 @@ class GameEngine:
         )
 
     async def admission(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         policy = self._extract_policy(request)
         if policy is None:
             return self._error("잘못된 입학 정책 요청입니다.", "INVALID_POLICY")
@@ -254,8 +298,13 @@ class GameEngine:
         }
         save.admission_criteria = criteria_presets[policy]
         log = f"입학 정책 변경: {self._policy_label(policy)}"
-        save.logs = [log, *save.logs][:5]
-        await repo.put(request.user.kakao_user_key, save)
+        save.admission_changed = True
+        quest_logs = check_quests(save)
+        if quest_logs:
+            save.logs = [log, *quest_logs, *save.logs][:5]
+        else:
+            save.logs = [log, *save.logs][:5]
+        await repo.put(request.user.id, save)
 
         return GameResult(
             message=(
@@ -268,11 +317,53 @@ class GameEngine:
         )
 
     async def logs(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         return GameResult(
             message="최근 운영 기록입니다.",
             logs=save.logs[:5],
             quickReplies=["내 대학 현황", "다음 달 진행", "메인 메뉴"],
+            save=save,
+        )
+
+    async def quests(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
+        save = await self._get_or_create(request.user.id, repo)
+        from app.services.quests import get_quest_list
+        quest_list = get_quest_list(save)
+        lines = []
+        for item in quest_list:
+            if "section" in item:
+                lines.append(f"\n【{item['section']}】")
+            else:
+                lines.append(f"  {item['status']} {item['name']}")
+        dynamic_title = compute_dynamic_title(save)
+        return GameResult(
+            message=f"🎓 {save.title} | 🏷 {dynamic_title}\n" + "\n".join(lines),
+            quickReplies=["내 대학 현황", "다음 달 진행", "메인 메뉴"],
+            save=save,
+        )
+
+    async def event_choice(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
+        save = await self._get_or_create(request.user.id, repo)
+        if save.pending_event is None:
+            return self._error("진행 중인 이벤트가 없습니다.", "NO_PENDING_EVENT")
+
+        event = EVENTS.get(save.pending_event)
+        if event is None:
+            save.pending_event = None
+            await repo.put(request.user.id, save)
+            return self._error("알 수 없는 이벤트입니다.", "UNKNOWN_EVENT")
+
+        choice = request.action.params.get("choice", "a")
+        choice_label = event.choice_a_label if choice == "a" else event.choice_b_label
+        event_logs = apply_event(save, event, choice=choice)
+        save.pending_event = None
+        save.logs = [*event_logs, *save.logs][:5]
+        await repo.put(request.user.id, save)
+
+        return GameResult(
+            message=f"'{event.name}' — {choice_label}을 선택했습니다.",
+            logs=event_logs,
+            quickReplies=["다음 달 진행", "건물 건설", "학과 개설", "내 대학 현황"],
             save=save,
         )
 
@@ -289,6 +380,11 @@ class GameEngine:
             departments=["humanities"],
             logs=["작은 캠퍼스로 새 학기를 시작했습니다."],
             admissionCriteria=AdmissionCriteria(math=5, science=5, english=5, korean=5),
+            completedMilestones=["first_step"],
+            activeQuestLines=[],
+            completedQuests=[],
+            title="신생 대학",
+            admissionChanged=False,
         )
 
     async def _get_or_create(self, user_key: str, repo: SaveRepository) -> SaveState:
@@ -359,11 +455,12 @@ class GameEngine:
         return department_capacity + building_capacity
 
     def _research_power(self, save: SaveState) -> int:
-        return save.buildings.laboratory * 10 + len(save.departments) * 2
+        from app.services.events import compute_research_power
+        return compute_research_power(save)
 
     def _education_power(self, save: SaveState) -> int:
-        dept_boost = sum(DEPARTMENTS[d].education_boost for d in save.departments)
-        return save.buildings.classroom * 8 + save.buildings.cafeteria * 2 + dept_boost
+        from app.services.events import compute_education_power
+        return compute_education_power(save)
 
     def _apply_graduation(self, save: SaveState) -> list[str]:
         graduate_count = max(18, int(save.students.enrolled * 0.24))
@@ -392,7 +489,8 @@ class GameEngine:
         criteria_avg = (criteria.math + criteria.science + criteria.english + criteria.korean) / 4
         difficulty_penalty = round(criteria_avg * 7)
         dorm_capacity = save.buildings.dormitory * 40
-        freshmen = max(20, 110 - difficulty_penalty + round(dorm_capacity * 0.35))
+        freshmen = max(20, 110 - difficulty_penalty + round(dorm_capacity * 0.35) + save.bonus_freshmen)
+        save.bonus_freshmen = 0  # Reset after use
         capacity = self._capacity(save)
         next_enrolled = min(capacity, freshmen + int(save.students.enrolled * 0.75))
         next_level = max(1.0, 10 - criteria_avg)

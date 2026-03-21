@@ -108,3 +108,23 @@ async def logs(
 ) -> dict:
     result = await game_engine.logs(request, repo)
     return to_kakao_response(result)
+
+
+@router.post("/event-choice")
+async def event_choice(
+    request: KakaoWebhookRequest,
+    repo: SaveRepository = Depends(get_repository),
+    game_engine: GameEngine = Depends(get_game_engine),
+) -> dict:
+    result = await game_engine.event_choice(request, repo)
+    return to_kakao_response(result)
+
+
+@router.post("/quests")
+async def quests(
+    request: KakaoWebhookRequest,
+    repo: SaveRepository = Depends(get_repository),
+    game_engine: GameEngine = Depends(get_game_engine),
+) -> dict:
+    result = await game_engine.quests(request, repo)
+    return to_kakao_response(result)

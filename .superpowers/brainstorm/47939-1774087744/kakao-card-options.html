@@ -1,0 +1,55 @@
+<h2>카카오 챗봇 이미지 응답 형태</h2>
+<p class="subtitle">생성된 이미지를 어떤 카드 타입으로 보여줄까요?</p>
+
+<div class="cards">
+  <!-- Option A: basicCard -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background: linear-gradient(135deg, #a8d8ea, #f8e8c1); border-radius: 12px; padding: 20px; text-align: center;">
+        <div style="font-size: 80px; margin-bottom: 8px;">🏫</div>
+        <div style="background: #fff; border-radius: 8px; padding: 12px; margin-top: 8px; text-align: left;">
+          <div style="font-weight: bold; font-size: 14px; color: #333;">🎉 강의동 건설 완료!</div>
+          <div style="font-size: 12px; color: #666; margin-top: 4px;">예산 -120G | 수용인원 +60명</div>
+          <div style="font-size: 11px; color: #999; margin-top: 8px;">AI가 생성한 나만의 캠퍼스 이미지</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. basicCard</h3>
+      <p>이미지 + 제목 + 설명 + 버튼. 가장 표준적인 카카오 카드. 이미지 위에 텍스트 정보가 함께 표시됩니다.</p>
+    </div>
+  </div>
+
+  <!-- Option B: imageCard -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background: linear-gradient(135deg, #c3aed6, #f8e8c1); border-radius: 12px; padding: 20px; text-align: center;">
+        <div style="font-size: 100px; margin-bottom: 4px;">🏫</div>
+        <div style="font-size: 11px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5); margin-top: 4px;">강의동 건설 완료!</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. imageCard</h3>
+      <p>이미지가 전체를 차지하고 위에 텍스트 오버레이. 이미지 임팩트가 크지만 정보 전달은 적습니다.</p>
+    </div>
+  </div>
+
+  <!-- Option C: simpleImage + simpleText -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="border-radius: 12px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #ffd3b6, #f8e8c1); padding: 20px; text-align: center;">
+          <div style="font-size: 80px;">🏫</div>
+        </div>
+        <div style="background: #f5f5f5; padding: 12px;">
+          <div style="font-size: 13px; color: #333;">🎉 강의동 건설 완료!</div>
+          <div style="font-size: 11px; color: #666; margin-top: 4px;">예산 -120G | 수용인원 +60명<br/>교육 역량이 상승합니다!</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. simpleImage + simpleText</h3>
+      <p>이미지와 텍스트를 별도 outputs으로 분리. 기존 텍스트 응답은 그대로 유지하면서 이미지만 추가합니다.</p>
+    </div>
+  </div>
+</div>

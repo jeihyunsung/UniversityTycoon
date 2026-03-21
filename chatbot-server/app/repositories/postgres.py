@@ -74,6 +74,13 @@ class PostgresSaveRepository(SaveRepository):
         row.buildings = save.buildings.model_dump()
         row.departments = list(save.departments)
         row.logs = list(save.logs)
+        row.pending_event = save.pending_event
+        row.bonus_freshmen = save.bonus_freshmen
+        row.completed_milestones = list(save.completed_milestones)
+        row.active_quest_lines = list(save.active_quest_lines)
+        row.completed_quests = list(save.completed_quests)
+        row.title = save.title
+        row.admission_changed = save.admission_changed
         row.updated_at = datetime.now(tz=timezone.utc)
 
         await self._session.flush()
@@ -112,5 +119,12 @@ class PostgresSaveRepository(SaveRepository):
                 "buildings": row.buildings,
                 "departments": row.departments,
                 "logs": row.logs,
+                "pendingEvent": row.pending_event,
+                "bonusFreshmen": row.bonus_freshmen,
+                "completedMilestones": row.completed_milestones or [],
+                "activeQuestLines": row.active_quest_lines or [],
+                "completedQuests": row.completed_quests or [],
+                "title": row.title or "신생 대학",
+                "admissionChanged": row.admission_changed if row.admission_changed is not None else False,
             }
         )
