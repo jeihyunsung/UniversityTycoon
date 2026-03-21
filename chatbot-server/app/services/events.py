@@ -7,9 +7,6 @@ from typing import TYPE_CHECKING, Literal
 if TYPE_CHECKING:
     from app.models.schemas import SaveState
 
-from app.services.game_engine import DEPARTMENTS
-
-
 @dataclass(frozen=True)
 class EventDefinition:
     id: str
@@ -28,8 +25,8 @@ _EVENT_LIST: list[EventDefinition] = [
     # Positive events
     EventDefinition(
         id="corp_collab",
-        name="기업 협력",
-        description="지역 기업이 협력을 제안했습니다. 예산이 증가합니다.",
+        name="산학협력",
+        description="지역 기업과 산학협력 협약을 체결했습니다. 예산이 증가합니다.",
         event_type="positive",
         effects={"budget": 80},
         conditions={"min_departments": 2},
@@ -168,6 +165,8 @@ def compute_education_power(save: SaveState) -> int:
     Returns:
         Education power as an integer.
     """
+    # Lazy import to avoid circular dependency with game_engine
+    from app.services.game_engine import DEPARTMENTS
     dept_boost = sum(DEPARTMENTS[d].education_boost for d in save.departments)
     return save.buildings.classroom * 8 + save.buildings.cafeteria * 2 + dept_boost
 

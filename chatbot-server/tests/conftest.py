@@ -69,6 +69,8 @@ def make_save(
     logs: list[str] | None = None,
     admission_policy: str = "normal",
     admission_criteria: AdmissionCriteria | None = None,
+    pending_event: str | None = None,
+    bonus_freshmen: int = 0,
 ) -> SaveState:
     """Build a SaveState with sensible defaults — override only what each test needs."""
     return SaveState.model_validate(
@@ -94,5 +96,7 @@ def make_save(
                 "english": admission_criteria.english if admission_criteria else 5,
                 "korean": admission_criteria.korean if admission_criteria else 5,
             },
+            "pendingEvent": pending_event,
+            "bonusFreshmen": bonus_freshmen,
         }
     )

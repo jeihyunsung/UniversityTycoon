@@ -15,6 +15,7 @@ from app.models.schemas import (
     StudentState,
 )
 from app.repositories.base import SaveRepository
+from app.services.events import EVENTS, apply_event, pick_event
 
 
 MONTH_LABELS = {
@@ -95,6 +96,14 @@ class GameEngine:
 
     async def advance_turn(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
         save = await self._get_or_create(request.user.id, repo)
+
+        # Expire unanswered choice event
+        if save.pending_event is not None:
+            expired = EVENTS.get(save.pending_event)
+            if expired:
+                save.logs = [f"⏰ '{expired.name}' 이벤트에 응답하지 않아 기회가 사라졌습니다.", *save.logs][:5]
+            save.pending_event = None
+
         next_month = 1 if save.month == 12 else save.month + 1
         next_year = save.year + 1 if save.month == 12 else save.year
         monthly_delta = self._monthly_budget_delta(save)
@@ -111,8 +120,23 @@ class GameEngine:
         if save.month == 10:
             logs.append("10월입니다. 입학 정책을 점검할 시기입니다.")
 
+        # Event judgment
+        event = pick_event(save)
+        if event is not None:
+            if event.event_type in ("positive", "negative"):
+                event_logs = apply_event(save, event)
+                logs.append(f"[{event.name}] {event.description}")
+                logs.extend(event_logs)
+            elif event.event_type == "choice":
+                save.pending_event = event.id
+                logs.append(f"📢 {event.name}: {event.description}")
+
         save.logs = [f"{save.year}년 {MONTH_LABELS[save.month]} 진입", *logs, *save.logs][:5]
         await repo.put(request.user.id, save)
+
+        quick_replies = ["다음 달 진행", "건물 건설", "학과 개설", "내 대학 현황"]
+        if save.pending_event is not None:
+            quick_replies = ["선택 A", "선택 B", "내 대학 현황"]
 
         return GameResult(
             message=(
@@ -120,7 +144,7 @@ class GameEngine:
                 f"이번 달 운영 변화는 {monthly_delta:+}G입니다."
             ),
             logs=logs,
-            quickReplies=["다음 달 진행", "건물 건설", "학과 개설", "내 대학 현황"],
+            quickReplies=quick_replies,
             save=save,
         )
 
@@ -260,6 +284,31 @@ class GameEngine:
             save=save,
         )
 
+    async def event_choice(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
+        save = await self._get_or_create(request.user.id, repo)
+        if save.pending_event is None:
+            return self._error("진행 중인 이벤트가 없습니다.", "NO_PENDING_EVENT")
+
+        event = EVENTS.get(save.pending_event)
+        if event is None:
+            save.pending_event = None
+            await repo.put(request.user.id, save)
+            return self._error("알 수 없는 이벤트입니다.", "UNKNOWN_EVENT")
+
+        choice = request.action.params.get("choice", "a")
+        choice_label = event.choice_a_label if choice == "a" else event.choice_b_label
+        event_logs = apply_event(save, event, choice=choice)
+        save.pending_event = None
+        save.logs = [*event_logs, *save.logs][:5]
+        await repo.put(request.user.id, save)
+
+        return GameResult(
+            message=f"'{event.name}' — {choice_label}을 선택했습니다.",
+            logs=event_logs,
+            quickReplies=["다음 달 진행", "건물 건설", "학과 개설", "내 대학 현황"],
+            save=save,
+        )
+
     def _initial_save(self, user_key: str) -> SaveState:
         return SaveState(
             userId=user_key,
@@ -346,8 +395,8 @@ class GameEngine:
         return save.buildings.laboratory * 10 + len(save.departments) * 2
 
     def _education_power(self, save: SaveState) -> int:
-        dept_boost = sum(DEPARTMENTS[d].education_boost for d in save.departments)
-        return save.buildings.classroom * 8 + save.buildings.cafeteria * 2 + dept_boost
+        from app.services.events import compute_education_power
+        return compute_education_power(save)
 
     def _apply_graduation(self, save: SaveState) -> list[str]:
         graduate_count = max(18, int(save.students.enrolled * 0.24))
@@ -376,7 +425,8 @@ class GameEngine:
         criteria_avg = (criteria.math + criteria.science + criteria.english + criteria.korean) / 4
         difficulty_penalty = round(criteria_avg * 7)
         dorm_capacity = save.buildings.dormitory * 40
-        freshmen = max(20, 110 - difficulty_penalty + round(dorm_capacity * 0.35))
+        freshmen = max(20, 110 - difficulty_penalty + round(dorm_capacity * 0.35) + save.bonus_freshmen)
+        save.bonus_freshmen = 0  # Reset after use
         capacity = self._capacity(save)
         next_enrolled = min(capacity, freshmen + int(save.students.enrolled * 0.75))
         next_level = max(1.0, 10 - criteria_avg)
