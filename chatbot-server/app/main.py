@@ -7,7 +7,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.kakao import router as kakao_router
 from app.config import settings
 from app.services.game_engine import GameEngine
-from app.services.image_service import KarloImageGenerator, NullImageGenerator
+from app.services.image_service import DalleImageGenerator, NullImageGenerator
 
 engine_db = None
 async_session_factory = None
@@ -20,8 +20,8 @@ async def lifespan(app: FastAPI):
         engine_db = create_async_engine(settings.async_database_url)
         async_session_factory = async_sessionmaker(engine_db, expire_on_commit=False)
 
-    if settings.image_generation_enabled and settings.karlo_api_key:
-        image_gen = KarloImageGenerator(settings.karlo_api_key, settings.karlo_timeout)
+    if settings.image_generation_enabled and settings.openai_api_key:
+        image_gen = DalleImageGenerator(settings.openai_api_key, settings.image_timeout)
     else:
         image_gen = NullImageGenerator()
 

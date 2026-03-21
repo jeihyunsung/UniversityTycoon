@@ -9,8 +9,6 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-KARLO_API_URL = "https://api.kakaobrain.com/v2/inference/karlo/t2i"
-
 
 MASTER_STYLE = "cute mobile tycoon game art, pastel palette, rounded toy-like shapes"
 NEGATIVE_PROMPT = "realistic, photorealistic, dark, gritty, text, watermark"
@@ -97,35 +95,33 @@ class PromptBuilder:
         return (prompt, NEGATIVE_PROMPT)
 
 
-class KarloImageGenerator:
-    """Image generator using Kakao Karlo API."""
+class DalleImageGenerator:
+    """Image generator using OpenAI DALL-E 3 API."""
 
-    def __init__(self, api_key: str, timeout: int = 4) -> None:
+    def __init__(self, api_key: str, timeout: int = 10) -> None:
         self._api_key = api_key
         self._timeout = timeout
 
     async def generate(self, prompt: str, negative_prompt: str = "") -> str | None:
-        """Call Karlo API and return the generated image URL."""
+        """Call OpenAI Images API and return the generated image URL."""
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 resp = await client.post(
-                    KARLO_API_URL,
+                    "https://api.openai.com/v1/images/generations",
                     headers={
-                        "Authorization": f"KakaoAK {self._api_key}",
+                        "Authorization": f"Bearer {self._api_key}",
                         "Content-Type": "application/json",
                     },
                     json={
-                        "version": "v2.1",
+                        "model": "dall-e-3",
                         "prompt": prompt,
-                        "negative_prompt": negative_prompt,
-                        "width": 512,
-                        "height": 512,
-                        "samples": 1,
+                        "n": 1,
+                        "size": "1024x1024",
                     },
                 )
                 resp.raise_for_status()
                 data = resp.json()
-                return data["images"][0]["image"]
+                return data["data"][0]["url"]
         except Exception:
-            logger.warning("Karlo image generation failed", exc_info=True)
+            logger.warning("DALL-E image generation failed", exc_info=True)
             return None

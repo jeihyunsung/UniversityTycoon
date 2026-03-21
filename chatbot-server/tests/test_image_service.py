@@ -7,7 +7,7 @@ from app.services.game_engine import GameEngine
 from app.services.image_service import (
     MASTER_STYLE,
     NEGATIVE_PROMPT,
-    KarloImageGenerator,
+    DalleImageGenerator,
     NullImageGenerator,
     PromptBuilder,
     _get_season,
@@ -59,16 +59,15 @@ async def test_null_image_generator_returns_none() -> None:
     assert result is None
 
 
-class TestKarloImageGenerator:
+class TestDalleImageGenerator:
     @pytest.mark.asyncio
     async def test_generate_returns_image_url(self) -> None:
-        karlo = KarloImageGenerator(api_key="test-key", timeout=4)
+        dalle = DalleImageGenerator(api_key="test-key", timeout=10)
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "id": "abc",
-            "model_version": "v2.1",
-            "images": [{"id": "img1", "image": "https://example.com/image.png"}],
+            "created": 1234567890,
+            "data": [{"url": "https://example.com/image.png"}],
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -79,14 +78,14 @@ class TestKarloImageGenerator:
             mock_client.post.return_value = mock_response
             mock_client_cls.return_value = mock_client
 
-            result = await karlo.generate("test prompt", "negative")
+            result = await dalle.generate("test prompt", "negative")
 
         assert result == "https://example.com/image.png"
         mock_client.post.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_generate_returns_none_on_error(self) -> None:
-        karlo = KarloImageGenerator(api_key="test-key", timeout=4)
+        dalle = DalleImageGenerator(api_key="test-key", timeout=10)
 
         with patch("app.services.image_service.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
@@ -95,7 +94,7 @@ class TestKarloImageGenerator:
             mock_client.post.side_effect = Exception("Network error")
             mock_client_cls.return_value = mock_client
 
-            result = await karlo.generate("test prompt")
+            result = await dalle.generate("test prompt")
 
         assert result is None
 
