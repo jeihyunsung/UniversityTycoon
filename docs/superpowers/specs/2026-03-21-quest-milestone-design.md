@@ -17,7 +17,7 @@
 | 1 | `first_step` | 첫 걸음 | 게임 시작 (자동 완료) | 칭호: "신생 대학" |
 | 2 | `campus_expand` | 캠퍼스 확장 | 건물 총 3개 이상 | budget +50 |
 | 3 | `study_begins` | 학문의 시작 | 학과 2개 이상 | budget +30, reputation_leading +3 |
-| 4 | `admission_strategist` | 입학 전략가 | 입학 정책 변경 1회 (policy != "normal") | budget +30 |
+| 4 | `admission_strategist` | 입학 전략가 | admission_changed == True | budget +30 |
 | 5 | `first_graduation` | 첫 졸업식 | year 2 이상 (졸업 경험) | budget +80, 칭호: "교육자" |
 | 6 | `growing_campus` | 성장하는 캠퍼스 | 건물 총 5개 이상 | budget +60 |
 | 7 | `dept_diversity` | 학과 다양화 | 학과 3개 이상 | budget +100, 칭호: "종합 대학" |
@@ -26,13 +26,21 @@
 ### 마일스톤 조건 체크 방법
 
 조건은 SaveState 필드로 직접 확인:
-- 건물 수: `_total_buildings(save)`
+- 건물 수: `_total_buildings(save)` (events.py에서 import)
 - 학과 수: `len(save.departments)`
-- 입학 정책: `save.admission_policy != "normal"`
+- 입학 정책 변경 여부: `save.admission_changed` (bool 플래그)
 - 연차: `save.year >= N`
-- 이전 마일스톤: `milestone.id in save.completed_milestones`
+- 이전 마일스톤: `prerequisite in save.completed_milestones`
 
-마일스톤 4 "입학 전략가"는 정책을 한 번이라도 바꾼 적이 있는지 체크해야 한다. `admission_policy != "normal"`로 간단히 체크한다 (바꿨다가 다시 normal로 돌려도, 다른 마일스톤 달성 순서상 대부분 한 번은 바꿔본 상태).
+마일스톤 4 "입학 전략가"는 `admission_changed: bool` 플래그로 체크한다. admission 메서드에서 정책 변경 시 `save.admission_changed = True`로 설정. 다시 normal로 돌려도 플래그는 유지된다.
+
+### 다중 마일스톤 동시 달성
+
+`check_and_apply`는 한 번 호출 시 여러 마일스톤을 연쇄 달성할 수 있다. 루프 내에서 `completed_milestones`에 추가하면서 다음 마일스톤의 prerequisite를 즉시 충족시킨다.
+
+### start_game에서의 초기화
+
+`_initial_save`에서 `completed_milestones=["first_step"]`, `title="신생 대학"`으로 사전 설정한다. 마일스톤 1은 게임 시작 시 자동 완료 상태.
 
 ## Specialization Quest System (1년차 이후)
 
@@ -100,19 +108,23 @@ completed_milestones: list[str] = Field(default_factory=list, alias="completedMi
 active_quest_lines: list[str] = Field(default_factory=list, alias="activeQuestLines")
 completed_quests: list[str] = Field(default_factory=list, alias="completedQuests")
 title: str = Field(default="신생 대학", alias="title")
+admission_changed: bool = Field(default=False, alias="admissionChanged")
 ```
 
 ### DB 변경
 
-`GameSaveRow`에 4개 컬럼 추가:
+`GameSaveRow`에 5개 컬럼 추가:
 - `completed_milestones: Mapped[list] = mapped_column(JSON, default=list)`
 - `active_quest_lines: Mapped[list] = mapped_column(JSON, default=list)`
 - `completed_quests: Mapped[list] = mapped_column(JSON, default=list)`
 - `title: Mapped[str] = mapped_column(String(64), default="신생 대학")`
+- `admission_changed: Mapped[bool] = mapped_column(default=False)`
 
 `PostgresSaveRepository`에 직렬화/역직렬화 추가.
 
 ## Module: quests.py
+
+공유 헬퍼 함수 (`_total_buildings`, `_total_reputation`, `_leading_field`)는 `events.py`에서 import한다. 중복 구현하지 않는다.
 
 ### check_and_apply(save: SaveState) -> list[str]
 
@@ -143,14 +155,17 @@ title: str = Field(default="신생 대학", alias="title")
 
 ### _activate_quest_lines(save)
 
-상위 2개 명성 분야를 `active_quest_lines`에 추가:
+상위 2개 명성 분야를 `active_quest_lines`에 추가. 이미 활성화되어 있으면 무시:
 ```python
-fields = sorted(
-    [("arts", save.reputation.arts), ("engineering", save.reputation.engineering),
-     ("medical", save.reputation.medical), ("humanities", save.reputation.humanities)],
-    key=lambda x: x[1], reverse=True
-)
-save.active_quest_lines = [f[0] for f in fields[:2]]
+def _activate_quest_lines(save: SaveState) -> None:
+    if save.active_quest_lines:
+        return  # 이미 활성화됨
+    fields = sorted(
+        [("arts", save.reputation.arts), ("engineering", save.reputation.engineering),
+         ("medical", save.reputation.medical), ("humanities", save.reputation.humanities)],
+        key=lambda x: x[1], reverse=True
+    )
+    save.active_quest_lines = [f[0] for f in fields[:2]]
 ```
 
 ### _apply_reward(save, rewards)
