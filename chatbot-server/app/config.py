@@ -4,6 +4,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./dev.db"
     use_db: bool = False
+    karlo_api_key: str = ""
+    image_generation_enabled: bool = True
+    karlo_timeout: int = 4
     model_config = {"env_prefix": "UT_"}
 
     @property
