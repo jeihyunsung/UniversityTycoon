@@ -123,8 +123,8 @@ class KarloImageGenerator:
                         "samples": 1,
                     },
                 )
-                await resp.raise_for_status()
-                data = await resp.json()
+                resp.raise_for_status()
+                data = resp.json()
                 return data["images"][0]["image"]
         except Exception:
             logger.warning("Karlo image generation failed", exc_info=True)

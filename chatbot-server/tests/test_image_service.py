@@ -53,7 +53,7 @@ async def test_null_image_generator_returns_none() -> None:
     assert result is None
 
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from app.services.image_service import KarloImageGenerator
 
 
@@ -61,14 +61,14 @@ class TestKarloImageGenerator:
     @pytest.mark.asyncio
     async def test_generate_returns_image_url(self) -> None:
         karlo = KarloImageGenerator(api_key="test-key", timeout=4)
-        mock_response = AsyncMock()
+        mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "id": "abc",
             "model_version": "v2.1",
             "images": [{"id": "img1", "image": "https://example.com/image.png"}],
         }
-        mock_response.raise_for_status = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
 
         with patch("app.services.image_service.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
