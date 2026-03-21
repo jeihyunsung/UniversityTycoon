@@ -9,17 +9,19 @@ from app.services.game_engine import GameEngine
 from tests.conftest import make_save, make_webhook
 
 
-def test_graduation_fires_in_february(engine: GameEngine, repo: InMemorySaveRepository, user_key: str) -> None:
+@pytest.mark.asyncio
+async def test_graduation_fires_in_february(engine: GameEngine, repo: InMemorySaveRepository, user_key: str) -> None:
     """Advancing from month 1 → 2 should trigger graduation and include '졸업생' in logs."""
-    repo.put(user_key, make_save(user_key, month=1, enrolled=100))
+    await repo.put(user_key, make_save(user_key, month=1, enrolled=100))
     webhook = make_webhook(user_key, action_name="ACTION_NEXT_TURN")
 
-    result = engine.advance_turn(webhook)
+    result = await engine.advance_turn(webhook, repo)
 
     assert any("졸업생" in log for log in result.logs)
 
 
-def test_graduation_distributes_to_leading_field(
+@pytest.mark.asyncio
+async def test_graduation_distributes_to_leading_field(
     engine: GameEngine, repo: InMemorySaveRepository, user_key: str
 ) -> None:
     """Reputation increase from graduation should go to the field with the highest current rep."""
@@ -34,23 +36,24 @@ def test_graduation_distributes_to_leading_field(
         humanities=6,
         departments=["art", "humanities"],
     )
-    repo.put(user_key, save)
+    await repo.put(user_key, save)
     arts_before = save.reputation.arts
     webhook = make_webhook(user_key, action_name="ACTION_NEXT_TURN")
 
-    result = engine.advance_turn(webhook)
+    result = await engine.advance_turn(webhook, repo)
 
     assert result.save is not None
     assert result.save.reputation.arts > arts_before
 
 
-def test_graduation_reduces_students(engine: GameEngine, repo: InMemorySaveRepository, user_key: str) -> None:
+@pytest.mark.asyncio
+async def test_graduation_reduces_students(engine: GameEngine, repo: InMemorySaveRepository, user_key: str) -> None:
     """Enrolled count should decrease after graduation fires in February."""
     initial_enrolled = 120
-    repo.put(user_key, make_save(user_key, month=1, enrolled=initial_enrolled))
+    await repo.put(user_key, make_save(user_key, month=1, enrolled=initial_enrolled))
     webhook = make_webhook(user_key, action_name="ACTION_NEXT_TURN")
 
-    result = engine.advance_turn(webhook)
+    result = await engine.advance_turn(webhook, repo)
 
     assert result.save is not None
     # After graduation (month 2) admission hasn't run yet, so enrolled < initial

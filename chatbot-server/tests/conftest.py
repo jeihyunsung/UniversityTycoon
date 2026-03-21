@@ -24,11 +24,8 @@ def repo() -> InMemorySaveRepository:
 
 
 @pytest.fixture()
-def engine(repo: InMemorySaveRepository, monkeypatch: pytest.MonkeyPatch) -> GameEngine:
-    """Return a GameEngine whose save_repository global is replaced with *repo*."""
-    import app.services.game_engine as engine_module
-
-    monkeypatch.setattr(engine_module, "save_repository", repo)
+def engine() -> GameEngine:
+    """Return a GameEngine instance (repo is now passed per-call)."""
     return GameEngine()
 
 
