@@ -111,3 +111,33 @@ async def test_kakao_response_has_quick_replies(client: AsyncClient) -> None:
     qrs = resp.json()["template"]["quickReplies"]
     assert len(qrs) > 0
     assert all("label" in qr for qr in qrs)
+
+
+async def test_event_choice_endpoint_no_pending(client):
+    user_key = "event_test_no_pending"
+    await client.post("/webhooks/kakao/start-game", json=_payload(user_key))
+
+    payload = _payload(user_key)
+    payload["action"] = {"name": "EVENT_CHOICE", "params": {"choice": "a"}}
+    resp = await client.post("/webhooks/kakao/event-choice", json=payload)
+    assert resp.status_code == 200
+    text = resp.json()["template"]["outputs"][0]["simpleText"]["text"]
+    assert "진행 중인 이벤트가 없습니다" in text
+
+
+async def test_event_choice_endpoint_success(client):
+    user_key = "event_test_success"
+    await client.post("/webhooks/kakao/start-game", json=_payload(user_key))
+
+    # Manually set pending_event
+    from app.repositories.in_memory import save_repository
+    save = await save_repository.get(user_key)
+    save.pending_event = "big_donation"
+    await save_repository.put(user_key, save)
+
+    payload = _payload(user_key)
+    payload["action"] = {"name": "EVENT_CHOICE", "params": {"choice": "a"}}
+    resp = await client.post("/webhooks/kakao/event-choice", json=payload)
+    assert resp.status_code == 200
+    text = resp.json()["template"]["outputs"][0]["simpleText"]["text"]
+    assert "선택했습니다" in text
