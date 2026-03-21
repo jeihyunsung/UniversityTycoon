@@ -81,3 +81,5 @@ class GameResult(BaseModel):
     options: list[dict[str, Any]] = Field(default_factory=list)
     error_code: str | None = Field(default=None, alias="errorCode")
     save: SaveState | None = None
+    image_url: str | None = Field(default=None, alias="imageUrl")
+    image_title: str | None = Field(default=None, alias="imageTitle")
