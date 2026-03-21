@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Protocol
+
 
 MASTER_STYLE = "cute mobile tycoon game art, pastel palette, rounded toy-like shapes"
 NEGATIVE_PROMPT = "realistic, photorealistic, dark, gritty, text, watermark"
@@ -28,6 +30,21 @@ SEASON_SUFFIX = {
     "autumn": "orange maple leaves, autumn atmosphere",
     "winter": "snow covered, cozy winter scene",
 }
+
+
+class ImageGenerator(Protocol):
+    """Interface for AI image generation services."""
+
+    async def generate(self, prompt: str, negative_prompt: str = "") -> str | None:
+        """Generate an image and return its URL. Returns None on failure."""
+        ...
+
+
+class NullImageGenerator:
+    """No-op image generator. Always returns None."""
+
+    async def generate(self, prompt: str, negative_prompt: str = "") -> str | None:
+        return None
 
 
 def _get_season(month: int) -> str:

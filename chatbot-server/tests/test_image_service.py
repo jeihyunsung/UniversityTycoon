@@ -41,3 +41,13 @@ class TestPromptBuilder:
     def test_winter_season_suffix(self) -> None:
         prompt, _ = PromptBuilder.build("building", "dormitory", 12)
         assert "snow" in prompt
+
+
+from app.services.image_service import NullImageGenerator
+
+
+@pytest.mark.asyncio
+async def test_null_image_generator_returns_none() -> None:
+    gen = NullImageGenerator()
+    result = await gen.generate("any prompt", "any negative")
+    assert result is None
