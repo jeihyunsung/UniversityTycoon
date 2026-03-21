@@ -429,6 +429,3 @@ class GameEngine:
             errorCode=code,
             quickReplies=quick_replies or ["내 대학 현황", "메인 메뉴"],
         )
-
-
-game_engine = GameEngine()  # Uses NullImageGenerator by default
