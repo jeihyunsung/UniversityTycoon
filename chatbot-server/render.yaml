@@ -1,0 +1,22 @@
+databases:
+  - name: university-tycoon-db
+    plan: free
+    databaseName: university_tycoon
+    region: singapore
+
+services:
+  - type: web
+    name: university-tycoon-chatbot
+    runtime: docker
+    dockerfilePath: ./chatbot-server/Dockerfile
+    dockerContext: ./chatbot-server
+    region: singapore
+    plan: free
+    envVars:
+      - key: UT_USE_DB
+        value: "true"
+      - key: UT_DATABASE_URL
+        fromDatabase:
+          name: university-tycoon-db
+          property: connectionString
+    healthCheckPath: /health
