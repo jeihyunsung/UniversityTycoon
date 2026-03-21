@@ -16,6 +16,7 @@ from app.models.schemas import (
 )
 from app.repositories.base import SaveRepository
 from app.services.events import EVENTS, apply_event, pick_event
+from app.services.quests import check_and_apply as check_quests, get_quest_summary
 
 
 MONTH_LABELS = {
@@ -84,12 +85,14 @@ class GameEngine:
     async def load_status(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
         save = await self._get_or_create(request.user.id, repo)
         total_reputation = self._total_reputation(save)
+        quest_summary = get_quest_summary(save)
         return GameResult(
             message=(
                 f"{save.year}년 {MONTH_LABELS[save.month]}입니다. "
                 f"예산 {save.budget}G / 총 명성 {total_reputation} / 재학생 {save.students.enrolled}명"
+                f"\n{quest_summary}"
             ),
-            quickReplies=["다음 달 진행", "건물 건설", "학과 개설", "입학 정책", "지난 결과 보기"],
+            quickReplies=["다음 달 진행", "건물 건설", "학과 개설", "입학 정책", "퀘스트", "지난 결과 보기"],
             logs=save.logs[:1],
             save=save,
         )
@@ -130,6 +133,10 @@ class GameEngine:
             elif event.event_type == "choice":
                 save.pending_event = event.id
                 logs.append(f"📢 {event.name}: {event.description}")
+
+        quest_logs = check_quests(save)
+        if quest_logs:
+            logs.extend(quest_logs)
 
         save.logs = [f"{save.year}년 {MONTH_LABELS[save.month]} 진입", *logs, *save.logs][:5]
         await repo.put(request.user.id, save)
@@ -181,13 +188,18 @@ class GameEngine:
         setattr(save.buildings, building_type, getattr(save.buildings, building_type) + 1)
         save.budget -= definition.cost
         log = f"{definition.label} 건설 완료"
-        save.logs = [log, *save.logs][:5]
+        quest_logs = check_quests(save)
+        if quest_logs:
+            log_entries = [log, *quest_logs]
+        else:
+            log_entries = [log]
+        save.logs = [*log_entries, *save.logs][:5]
         await repo.put(request.user.id, save)
 
         return GameResult(
             message=f"{definition.label}을 건설했습니다. 예산 -{definition.cost}G / {definition.description}",
             quickReplies=["계속 건설", "내 대학 현황", "다음 달 진행"],
-            logs=[log],
+            logs=log_entries,
             save=save,
         )
 
@@ -227,13 +239,18 @@ class GameEngine:
         current_value = getattr(save.reputation, definition.field)
         setattr(save.reputation, definition.field, current_value + definition.reputation_bonus)
         log = f"{definition.label} 개설 완료"
-        save.logs = [log, *save.logs][:5]
+        quest_logs = check_quests(save)
+        if quest_logs:
+            log_entries = [log, *quest_logs]
+        else:
+            log_entries = [log]
+        save.logs = [*log_entries, *save.logs][:5]
         await repo.put(request.user.id, save)
 
         return GameResult(
             message=f"{definition.label}를 개설했습니다. 예산 -{definition.cost}G / {definition.description}",
             quickReplies=["다른 학과 보기", "내 대학 현황", "다음 달 진행"],
-            logs=[log],
+            logs=log_entries,
             save=save,
         )
 
@@ -262,7 +279,12 @@ class GameEngine:
         }
         save.admission_criteria = criteria_presets[policy]
         log = f"입학 정책 변경: {self._policy_label(policy)}"
-        save.logs = [log, *save.logs][:5]
+        save.admission_changed = True
+        quest_logs = check_quests(save)
+        if quest_logs:
+            save.logs = [log, *quest_logs, *save.logs][:5]
+        else:
+            save.logs = [log, *save.logs][:5]
         await repo.put(request.user.id, save)
 
         return GameResult(
@@ -280,6 +302,22 @@ class GameEngine:
         return GameResult(
             message="최근 운영 기록입니다.",
             logs=save.logs[:5],
+            quickReplies=["내 대학 현황", "다음 달 진행", "메인 메뉴"],
+            save=save,
+        )
+
+    async def quests(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
+        save = await self._get_or_create(request.user.id, repo)
+        from app.services.quests import get_quest_list
+        quest_list = get_quest_list(save)
+        lines = []
+        for item in quest_list:
+            if "section" in item:
+                lines.append(f"\n【{item['section']}】")
+            else:
+                lines.append(f"  {item['status']} {item['name']}")
+        return GameResult(
+            message=f"🎓 {save.title}\n" + "\n".join(lines),
             quickReplies=["내 대학 현황", "다음 달 진행", "메인 메뉴"],
             save=save,
         )
@@ -322,6 +360,11 @@ class GameEngine:
             departments=["humanities"],
             logs=["작은 캠퍼스로 새 학기를 시작했습니다."],
             admissionCriteria=AdmissionCriteria(math=5, science=5, english=5, korean=5),
+            completedMilestones=["first_step"],
+            activeQuestLines=[],
+            completedQuests=[],
+            title="신생 대학",
+            admissionChanged=False,
         )
 
     async def _get_or_create(self, user_key: str, repo: SaveRepository) -> SaveState:

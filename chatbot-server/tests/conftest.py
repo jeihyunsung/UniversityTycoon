@@ -71,8 +71,19 @@ def make_save(
     admission_criteria: AdmissionCriteria | None = None,
     pending_event: str | None = None,
     bonus_freshmen: int = 0,
+    completed_milestones: list[str] | None = None,
+    active_quest_lines: list[str] | None = None,
+    completed_quests: list[str] | None = None,
+    title: str = "신생 대학",
+    admission_changed: bool = False,
+    buildings: BuildingState | None = None,
 ) -> SaveState:
     """Build a SaveState with sensible defaults — override only what each test needs."""
+    if buildings is not None:
+        classroom = buildings.classroom
+        dormitory = buildings.dormitory
+        laboratory = buildings.laboratory
+        cafeteria = buildings.cafeteria
     return SaveState.model_validate(
         {
             "userId": user_key,
@@ -98,5 +109,10 @@ def make_save(
             },
             "pendingEvent": pending_event,
             "bonusFreshmen": bonus_freshmen,
+            "completedMilestones": completed_milestones if completed_milestones is not None else ["first_step"],
+            "activeQuestLines": active_quest_lines if active_quest_lines is not None else [],
+            "completedQuests": completed_quests if completed_quests is not None else [],
+            "title": title,
+            "admissionChanged": admission_changed,
         }
     )

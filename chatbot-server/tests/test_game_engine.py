@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
+from app.models.schemas import BuildingState
 from app.repositories.in_memory import InMemorySaveRepository
 from app.services.events import EVENTS
 from app.services.game_engine import GameEngine
@@ -76,7 +77,11 @@ async def test_advance_turn_wraps_year(engine: GameEngine, repo: InMemorySaveRep
 @pytest.mark.asyncio
 async def test_build_classroom_deducts_budget(engine: GameEngine, repo: InMemorySaveRepository, user_key: str) -> None:
     initial_budget = 480
-    await repo.put(user_key, make_save(user_key, budget=initial_budget, classroom=1))
+    # Mark campus_expand completed so quest reward doesn't affect budget assertion
+    await repo.put(user_key, make_save(
+        user_key, budget=initial_budget, classroom=1,
+        completed_milestones=["first_step", "campus_expand"],
+    ))
     webhook = make_webhook(user_key, action_name="ACTION_BUILD_CLASSROOM")
 
     result = await engine.build(webhook, repo)
@@ -162,7 +167,8 @@ async def test_pending_event_expires_on_next_turn(engine: GameEngine, repo: InMe
     save = make_save(user_key, year=3, pending_event="big_donation")
     await repo.put(user_key, save)
 
-    with patch("app.services.events.pick_event", return_value=None):
+    # Patch pick_event where game_engine looks it up (imported name)
+    with patch("app.services.game_engine.pick_event", return_value=None):
         result = await engine.advance_turn(make_webhook(user_key), repo)
 
     assert result.save.pending_event is None
@@ -191,3 +197,35 @@ async def test_bonus_freshmen_applied_in_march(engine: GameEngine, repo: InMemor
 
     assert result.save.month == 3
     assert result.save.bonus_freshmen == 0
+
+
+# ---------------------------------------------------------------------------
+# Quest integration
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_build_triggers_milestone(engine: GameEngine, repo: InMemorySaveRepository, user_key: str) -> None:
+    save = make_save(user_key, buildings=BuildingState(classroom=1, dormitory=1, laboratory=0, cafeteria=0))
+    await repo.put(user_key, save)
+    result = await engine.build(
+        make_webhook(user_key, action_name="ACTION_BUILD_LAB"), repo
+    )
+    assert "campus_expand" in result.save.completed_milestones
+
+
+@pytest.mark.asyncio
+async def test_admission_sets_changed_flag(engine: GameEngine, repo: InMemorySaveRepository, user_key: str) -> None:
+    save = make_save(user_key)
+    await repo.put(user_key, save)
+    result = await engine.admission(
+        make_webhook(user_key, action_name="ACTION_ADMISSION_HARD"), repo
+    )
+    assert result.save.admission_changed is True
+
+
+@pytest.mark.asyncio
+async def test_load_status_includes_quest_summary(engine: GameEngine, repo: InMemorySaveRepository, user_key: str) -> None:
+    save = make_save(user_key)
+    await repo.put(user_key, save)
+    result = await engine.load_status(make_webhook(user_key), repo)
+    assert "다음 목표" in result.message or "퀘스트" in result.message
