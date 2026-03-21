@@ -141,3 +141,12 @@ async def test_event_choice_endpoint_success(client):
     assert resp.status_code == 200
     text = resp.json()["template"]["outputs"][0]["simpleText"]["text"]
     assert "선택했습니다" in text
+
+
+async def test_quests_endpoint(client):
+    user_key = "quest_test_user"
+    await client.post("/webhooks/kakao/start-game", json=_payload(user_key))
+    resp = await client.post("/webhooks/kakao/quests", json=_payload(user_key))
+    assert resp.status_code == 200
+    text = resp.json()["template"]["outputs"][0]["simpleText"]["text"]
+    assert "마일스톤" in text or "신생 대학" in text
