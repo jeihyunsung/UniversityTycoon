@@ -1,6 +1,18 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
-from app.services.image_service import _get_season
+from app.repositories.in_memory import InMemorySaveRepository
+from app.services.game_engine import GameEngine
+from app.services.image_service import (
+    MASTER_STYLE,
+    NEGATIVE_PROMPT,
+    KarloImageGenerator,
+    NullImageGenerator,
+    PromptBuilder,
+    _get_season,
+)
+from tests.conftest import make_webhook
 
 
 @pytest.mark.parametrize(
@@ -14,9 +26,6 @@ from app.services.image_service import _get_season
 )
 def test_get_season(month: int, expected: str) -> None:
     assert _get_season(month) == expected
-
-
-from app.services.image_service import PromptBuilder, MASTER_STYLE, NEGATIVE_PROMPT
 
 
 class TestPromptBuilder:
@@ -43,18 +52,11 @@ class TestPromptBuilder:
         assert "snow" in prompt
 
 
-from app.services.image_service import NullImageGenerator
-
-
 @pytest.mark.asyncio
 async def test_null_image_generator_returns_none() -> None:
     gen = NullImageGenerator()
     result = await gen.generate("any prompt", "any negative")
     assert result is None
-
-
-from unittest.mock import AsyncMock, MagicMock, patch
-from app.services.image_service import KarloImageGenerator
 
 
 class TestKarloImageGenerator:
@@ -96,11 +98,6 @@ class TestKarloImageGenerator:
             result = await karlo.generate("test prompt")
 
         assert result is None
-
-
-from app.services.game_engine import GameEngine
-from app.repositories.in_memory import InMemorySaveRepository
-from tests.conftest import make_webhook
 
 
 class TestGameEngineImageIntegration:

@@ -87,9 +87,9 @@ class PromptBuilder:
         if event_type == "start_game":
             subject = START_GAME_PROMPT
         elif event_type == "building":
-            subject = BUILDING_PROMPTS[target]
+            subject = BUILDING_PROMPTS.get(target, target)
         elif event_type == "department":
-            subject = DEPARTMENT_PROMPTS[target]
+            subject = DEPARTMENT_PROMPTS.get(target, target)
         else:
             subject = target
 
