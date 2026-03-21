@@ -4,6 +4,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./dev.db"
     use_db: bool = False
+    openai_api_key: str = ""
+    image_generation_enabled: bool = True
+    image_timeout: int = 10
     model_config = {"env_prefix": "UT_"}
 
     @property

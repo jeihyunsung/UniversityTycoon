@@ -2,7 +2,20 @@ from app.models.schemas import GameResult
 
 
 def to_kakao_response(result: GameResult) -> dict:
-    outputs: list[dict] = [{"simpleText": {"text": result.message}}]
+    outputs: list[dict] = []
+
+    if result.image_url:
+        outputs.append({
+            "basicCard": {
+                "title": result.image_title or "",
+                "description": result.message[:230],
+                "thumbnail": {
+                    "imageUrl": result.image_url,
+                },
+            }
+        })
+    else:
+        outputs.append({"simpleText": {"text": result.message}})
 
     if result.options:
         option_lines = []

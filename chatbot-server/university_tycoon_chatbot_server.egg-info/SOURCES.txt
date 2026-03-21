@@ -4,6 +4,7 @@ app/__init__.py
 app/config.py
 app/main.py
 app/api/__init__.py
+app/api/deps.py
 app/api/routes/__init__.py
 app/api/routes/health.py
 app/api/routes/kakao.py
@@ -17,6 +18,11 @@ app/repositories/postgres.py
 app/services/__init__.py
 app/services/game_engine.py
 app/services/kakao_adapter.py
+tests/test_admission.py
+tests/test_api.py
+tests/test_game_engine.py
+tests/test_graduation.py
+tests/test_image_service.py
 university_tycoon_chatbot_server.egg-info/PKG-INFO
 university_tycoon_chatbot_server.egg-info/SOURCES.txt
 university_tycoon_chatbot_server.egg-info/dependency_links.txt

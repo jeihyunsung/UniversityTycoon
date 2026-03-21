@@ -30,9 +30,12 @@ def _action_payload(user_key: str, action_name: str) -> dict:
 
 @pytest.fixture
 async def client():
-    """Async HTTP client targeting the ASGI app directly."""
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        yield c
+    """Async HTTP client targeting the ASGI app with lifespan running."""
+    from app.main import lifespan
+
+    async with lifespan(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            yield c
 
 
 @pytest.fixture(autouse=True)

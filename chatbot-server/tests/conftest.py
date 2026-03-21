@@ -16,6 +16,7 @@ from app.models.schemas import (
 )
 from app.repositories.in_memory import InMemorySaveRepository
 from app.services.game_engine import GameEngine
+from app.services.image_service import NullImageGenerator
 
 
 @pytest.fixture()
@@ -27,7 +28,7 @@ def repo() -> InMemorySaveRepository:
 @pytest.fixture()
 def engine() -> GameEngine:
     """Return a GameEngine instance (repo is now passed per-call)."""
-    return GameEngine()
+    return GameEngine(image_generator=NullImageGenerator())
 
 
 @pytest.fixture()

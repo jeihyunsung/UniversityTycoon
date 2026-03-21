@@ -1,0 +1,72 @@
+<h2>카카오 챗봇 basicCard 응답 목업</h2>
+<p class="subtitle">건물 건설 시 실제 대화에서 보이는 형태</p>
+
+<div class="split">
+  <!-- 현재: 텍스트만 -->
+  <div class="mockup">
+    <div class="mockup-header">현재: simpleText</div>
+    <div class="mockup-body" style="background: #b2c7d9; padding: 16px; min-height: 350px;">
+      <!-- User bubble -->
+      <div style="display:flex; justify-content:flex-end; margin-bottom: 12px;">
+        <div style="background: #fee500; border-radius: 12px 12px 0 12px; padding: 10px 14px; max-width: 70%; font-size: 13px;">
+          강의동 건설
+        </div>
+      </div>
+      <!-- Bot bubble -->
+      <div style="display:flex; justify-content:flex-start; margin-bottom: 12px;">
+        <div style="background: #fff; border-radius: 12px 12px 12px 0; padding: 10px 14px; max-width: 80%; font-size: 12px; line-height: 1.6;">
+          🏫 강의동 건설 완료!<br/>
+          예산 -120G → 잔액 360G<br/>
+          수용인원 +60명<br/>
+          교육 역량이 상승합니다!
+        </div>
+      </div>
+      <!-- Quick replies -->
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top: 20px;">
+        <div style="background:#fff; border:1px solid #ddd; border-radius:16px; padding:6px 12px; font-size:11px;">📊 현황</div>
+        <div style="background:#fff; border:1px solid #ddd; border-radius:16px; padding:6px 12px; font-size:11px;">⏩ 다음달</div>
+        <div style="background:#fff; border:1px solid #ddd; border-radius:16px; padding:6px 12px; font-size:11px;">🏗️ 건설</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 변경 후: basicCard + simpleText -->
+  <div class="mockup">
+    <div class="mockup-header">변경 후: basicCard</div>
+    <div class="mockup-body" style="background: #b2c7d9; padding: 16px; min-height: 350px;">
+      <!-- User bubble -->
+      <div style="display:flex; justify-content:flex-end; margin-bottom: 12px;">
+        <div style="background: #fee500; border-radius: 12px 12px 0 12px; padding: 10px 14px; max-width: 70%; font-size: 13px;">
+          강의동 건설
+        </div>
+      </div>
+      <!-- Bot card -->
+      <div style="display:flex; justify-content:flex-start; margin-bottom: 12px;">
+        <div style="background: #fff; border-radius: 12px; max-width: 85%; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <!-- Thumbnail -->
+          <div style="background: linear-gradient(135deg, #fce4ec, #e8f5e9, #e3f2fd); height: 160px; display:flex; align-items:center; justify-content:center;">
+            <div style="text-align:center;">
+              <div style="font-size: 64px;">🏫</div>
+              <div style="font-size: 10px; color: #999; margin-top: 4px;">← AI 생성 이미지</div>
+            </div>
+          </div>
+          <!-- Card body -->
+          <div style="padding: 12px;">
+            <div style="font-weight: bold; font-size: 14px; color: #333;">🎉 강의동 건설 완료!</div>
+            <div style="font-size: 12px; color: #666; margin-top: 6px; line-height: 1.5;">
+              예산 -120G → 잔액 360G<br/>
+              수용인원 +60명<br/>
+              교육 역량이 상승합니다!
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Quick replies -->
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top: 20px;">
+        <div style="background:#fff; border:1px solid #ddd; border-radius:16px; padding:6px 12px; font-size:11px;">📊 현황</div>
+        <div style="background:#fff; border:1px solid #ddd; border-radius:16px; padding:6px 12px; font-size:11px;">⏩ 다음달</div>
+        <div style="background:#fff; border:1px solid #ddd; border-radius:16px; padding:6px 12px; font-size:11px;">🏗️ 건설</div>
+      </div>
+    </div>
+  </div>
+</div>
