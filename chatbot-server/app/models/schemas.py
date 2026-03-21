@@ -87,6 +87,11 @@ class SaveState(BaseModel):
     )
     pending_event: str | None = Field(default=None, alias="pendingEvent")
     bonus_freshmen: int = Field(default=0, alias="bonusFreshmen")
+    completed_milestones: list[str] = Field(default_factory=list, alias="completedMilestones")
+    active_quest_lines: list[str] = Field(default_factory=list, alias="activeQuestLines")
+    completed_quests: list[str] = Field(default_factory=list, alias="completedQuests")
+    title: str = Field(default="신생 대학", alias="title")
+    admission_changed: bool = Field(default=False, alias="admissionChanged")
 
 
 class GameResult(BaseModel):
