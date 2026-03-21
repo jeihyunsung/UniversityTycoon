@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
 
-from app.api.deps import get_repository
+from app.api.deps import get_game_engine, get_repository
 from app.models.schemas import KakaoWebhookRequest
 from app.repositories.base import SaveRepository
-from app.services.game_engine import game_engine
+from app.services.game_engine import GameEngine
 from app.services.kakao_adapter import to_kakao_response
 
 
@@ -14,6 +14,7 @@ router = APIRouter()
 async def start_game(
     request: KakaoWebhookRequest,
     repo: SaveRepository = Depends(get_repository),
+    game_engine: GameEngine = Depends(get_game_engine),
 ) -> dict:
     result = await game_engine.start_game(request, repo)
     return to_kakao_response(result)
@@ -23,6 +24,7 @@ async def start_game(
 async def status(
     request: KakaoWebhookRequest,
     repo: SaveRepository = Depends(get_repository),
+    game_engine: GameEngine = Depends(get_game_engine),
 ) -> dict:
     result = await game_engine.load_status(request, repo)
     return to_kakao_response(result)
@@ -32,6 +34,7 @@ async def status(
 async def advance_turn(
     request: KakaoWebhookRequest,
     repo: SaveRepository = Depends(get_repository),
+    game_engine: GameEngine = Depends(get_game_engine),
 ) -> dict:
     result = await game_engine.advance_turn(request, repo)
     return to_kakao_response(result)
@@ -41,6 +44,7 @@ async def advance_turn(
 async def build_menu(
     request: KakaoWebhookRequest,
     repo: SaveRepository = Depends(get_repository),
+    game_engine: GameEngine = Depends(get_game_engine),
 ) -> dict:
     result = await game_engine.build_menu(request, repo)
     return to_kakao_response(result)
@@ -50,6 +54,7 @@ async def build_menu(
 async def build(
     request: KakaoWebhookRequest,
     repo: SaveRepository = Depends(get_repository),
+    game_engine: GameEngine = Depends(get_game_engine),
 ) -> dict:
     result = await game_engine.build(request, repo)
     return to_kakao_response(result)
@@ -59,6 +64,7 @@ async def build(
 async def department_menu(
     request: KakaoWebhookRequest,
     repo: SaveRepository = Depends(get_repository),
+    game_engine: GameEngine = Depends(get_game_engine),
 ) -> dict:
     result = await game_engine.department_menu(request, repo)
     return to_kakao_response(result)
@@ -68,6 +74,7 @@ async def department_menu(
 async def department(
     request: KakaoWebhookRequest,
     repo: SaveRepository = Depends(get_repository),
+    game_engine: GameEngine = Depends(get_game_engine),
 ) -> dict:
     result = await game_engine.department(request, repo)
     return to_kakao_response(result)
@@ -77,6 +84,7 @@ async def department(
 async def admission_menu(
     request: KakaoWebhookRequest,
     repo: SaveRepository = Depends(get_repository),
+    game_engine: GameEngine = Depends(get_game_engine),
 ) -> dict:
     result = await game_engine.admission_menu(request, repo)
     return to_kakao_response(result)
@@ -86,6 +94,7 @@ async def admission_menu(
 async def admission(
     request: KakaoWebhookRequest,
     repo: SaveRepository = Depends(get_repository),
+    game_engine: GameEngine = Depends(get_game_engine),
 ) -> dict:
     result = await game_engine.admission(request, repo)
     return to_kakao_response(result)
@@ -95,6 +104,7 @@ async def admission(
 async def logs(
     request: KakaoWebhookRequest,
     repo: SaveRepository = Depends(get_repository),
+    game_engine: GameEngine = Depends(get_game_engine),
 ) -> dict:
     result = await game_engine.logs(request, repo)
     return to_kakao_response(result)

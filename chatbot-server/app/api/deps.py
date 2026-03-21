@@ -1,8 +1,20 @@
 from collections.abc import AsyncGenerator
 
+from fastapi import Request
+
 from app.config import settings
 from app.repositories.base import SaveRepository
 from app.repositories.in_memory import save_repository as in_memory_repo
+from app.services.game_engine import GameEngine
+
+
+def get_game_engine(request: Request) -> GameEngine:
+    """Return the GameEngine instance stored in app state.
+
+    The engine is created once during lifespan startup with the
+    appropriate ImageGenerator wired in.
+    """
+    return request.app.state.game_engine
 
 
 async def get_repository() -> AsyncGenerator[SaveRepository, None]:
