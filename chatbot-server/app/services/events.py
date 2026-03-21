@@ -156,6 +156,19 @@ _EVENT_LIST: list[EventDefinition] = [
 EVENTS: dict[str, EventDefinition] = {e.id: e for e in _EVENT_LIST}
 
 
+def compute_research_power(save: SaveState) -> int:
+    """Compute the university's research power from laboratories and departments.
+
+    Args:
+        save: Current game save state.
+
+    Returns:
+        Research power as an integer.
+    """
+    from app.services.game_engine import DEPARTMENTS
+    return save.buildings.laboratory * 10 + len(save.departments) * 2
+
+
 def compute_education_power(save: SaveState) -> int:
     """Compute the university's education power from buildings and departments.
 

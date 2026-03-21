@@ -17,6 +17,7 @@ from app.models.schemas import (
 from app.repositories.base import SaveRepository
 from app.services.events import EVENTS, apply_event, pick_event
 from app.services.quests import check_and_apply as check_quests, get_quest_summary
+from app.services.titles import compute_dynamic_title
 
 
 MONTH_LABELS = {
@@ -86,11 +87,13 @@ class GameEngine:
         save = await self._get_or_create(request.user.id, repo)
         total_reputation = self._total_reputation(save)
         quest_summary = get_quest_summary(save)
+        dynamic_title = compute_dynamic_title(save)
         return GameResult(
             message=(
                 f"{save.year}년 {MONTH_LABELS[save.month]}입니다. "
-                f"예산 {save.budget}G / 총 명성 {total_reputation} / 재학생 {save.students.enrolled}명"
-                f"\n{quest_summary}"
+                f"예산 {save.budget}G / 총 명성 {total_reputation} / 재학생 {save.students.enrolled}명\n"
+                f"🏷 {dynamic_title} | 🎓 {save.title}\n"
+                f"{quest_summary}"
             ),
             quickReplies=["다음 달 진행", "건물 건설", "학과 개설", "입학 정책", "퀘스트", "지난 결과 보기"],
             logs=save.logs[:1],
@@ -316,8 +319,9 @@ class GameEngine:
                 lines.append(f"\n【{item['section']}】")
             else:
                 lines.append(f"  {item['status']} {item['name']}")
+        dynamic_title = compute_dynamic_title(save)
         return GameResult(
-            message=f"🎓 {save.title}\n" + "\n".join(lines),
+            message=f"🎓 {save.title} | 🏷 {dynamic_title}\n" + "\n".join(lines),
             quickReplies=["내 대학 현황", "다음 달 진행", "메인 메뉴"],
             save=save,
         )
@@ -435,7 +439,8 @@ class GameEngine:
         return department_capacity + building_capacity
 
     def _research_power(self, save: SaveState) -> int:
-        return save.buildings.laboratory * 10 + len(save.departments) * 2
+        from app.services.events import compute_research_power
+        return compute_research_power(save)
 
     def _education_power(self, save: SaveState) -> int:
         from app.services.events import compute_education_power
