@@ -12,6 +12,7 @@ from app.models.schemas import (
     ReputationState,
     SaveState,
     StudentState,
+    UserRequest,
 )
 from app.repositories.in_memory import InMemorySaveRepository
 from app.services.game_engine import GameEngine
@@ -37,7 +38,7 @@ def user_key() -> str:
 def make_webhook(user_key: str, action_name: str = "ACTION_STATUS", params: dict | None = None) -> KakaoWebhookRequest:
     """Build a minimal KakaoWebhookRequest for testing."""
     return KakaoWebhookRequest(
-        user=KakaoUser(**{"kakaoUserKey": user_key}),
+        userRequest=UserRequest(user=KakaoUser(id=user_key)),
         action=ActionPayload(name=action_name, params=params or {}),
     )
 

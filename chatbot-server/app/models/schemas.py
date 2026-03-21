@@ -11,24 +11,38 @@ DepartmentId = Literal["art", "computer", "medical", "humanities"]
 
 
 class KakaoUser(BaseModel):
-    kakao_user_key: str = Field(alias="kakaoUserKey")
+    id: str
+    type: str = "botUserKey"
+    properties: dict[str, Any] = Field(default_factory=dict)
+
+
+class UserRequest(BaseModel):
+    timezone: str = "Asia/Seoul"
+    utterance: str = ""
+    user: KakaoUser
+    block: dict[str, Any] = Field(default_factory=dict)
+    params: dict[str, Any] = Field(default_factory=dict)
+    lang: str | None = None
 
 
 class ActionPayload(BaseModel):
     name: str = "ACTION_STATUS"
     params: dict[str, Any] = Field(default_factory=dict)
-
-
-class ContextPayload(BaseModel):
-    channel_id: str | None = Field(default=None, alias="channelId")
-    block_id: str | None = Field(default=None, alias="blockId")
+    id: str | None = None
+    client_extra: Any = Field(default=None, alias="clientExtra")
+    detail_params: dict[str, Any] = Field(default_factory=dict, alias="detailParams")
 
 
 class KakaoWebhookRequest(BaseModel):
-    user: KakaoUser
+    """Matches the actual Kakao Open Builder webhook payload format."""
+    user_request: UserRequest = Field(alias="userRequest")
     action: ActionPayload = Field(default_factory=ActionPayload)
-    context: ContextPayload = Field(default_factory=ContextPayload)
-    raw_kakao_payload: dict[str, Any] = Field(default_factory=dict, alias="rawKakaoPayload")
+    bot: dict[str, Any] = Field(default_factory=dict)
+    intent: dict[str, Any] = Field(default_factory=dict)
+
+    @property
+    def user(self) -> KakaoUser:
+        return self.user_request.user
 
 
 class StudentState(BaseModel):

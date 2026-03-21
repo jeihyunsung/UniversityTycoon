@@ -9,14 +9,23 @@ from app.repositories.in_memory import save_repository
 
 
 def _payload(user_key: str) -> dict:
-    return {"user": {"kakaoUserKey": user_key}}
+    return {
+        "userRequest": {
+            "user": {"id": user_key, "type": "botUserKey", "properties": {}},
+            "utterance": "",
+            "block": {},
+            "params": {},
+        },
+        "action": {"name": "ACTION_STATUS", "params": {}},
+        "bot": {},
+        "intent": {},
+    }
 
 
 def _action_payload(user_key: str, action_name: str) -> dict:
-    return {
-        "user": {"kakaoUserKey": user_key},
-        "action": {"name": action_name, "params": {}},
-    }
+    payload = _payload(user_key)
+    payload["action"] = {"name": action_name, "params": {}}
+    return payload
 
 
 @pytest.fixture

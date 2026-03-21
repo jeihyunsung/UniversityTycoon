@@ -72,8 +72,8 @@ DEPARTMENTS: dict[DepartmentId, DepartmentDefinition] = {
 
 class GameEngine:
     async def start_game(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = self._initial_save(request.user.kakao_user_key)
-        await repo.put(request.user.kakao_user_key, save)
+        save = self._initial_save(request.user.id)
+        await repo.put(request.user.id, save)
         return GameResult(
             message="작은 대학 운영이 시작되었습니다. 현재 1년 1월 / 예산 480G / 총 명성 30",
             quickReplies=["내 대학 현황", "건물 건설", "학과 개설", "다음 달 진행"],
@@ -81,7 +81,7 @@ class GameEngine:
         )
 
     async def load_status(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         total_reputation = self._total_reputation(save)
         return GameResult(
             message=(
@@ -94,7 +94,7 @@ class GameEngine:
         )
 
     async def advance_turn(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         next_month = 1 if save.month == 12 else save.month + 1
         next_year = save.year + 1 if save.month == 12 else save.year
         monthly_delta = self._monthly_budget_delta(save)
@@ -112,7 +112,7 @@ class GameEngine:
             logs.append("10월입니다. 입학 정책을 점검할 시기입니다.")
 
         save.logs = [f"{save.year}년 {MONTH_LABELS[save.month]} 진입", *logs, *save.logs][:5]
-        await repo.put(request.user.kakao_user_key, save)
+        await repo.put(request.user.id, save)
 
         return GameResult(
             message=(
@@ -125,7 +125,7 @@ class GameEngine:
         )
 
     async def build_menu(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         options = [
             {
                 "label": f"{definition.label} {definition.cost}G",
@@ -141,7 +141,7 @@ class GameEngine:
         )
 
     async def build(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         building_type = self._extract_building_type(request)
         if building_type is None:
             return self._error("잘못된 건물 요청입니다.", "INVALID_ACTION")
@@ -158,7 +158,7 @@ class GameEngine:
         save.budget -= definition.cost
         log = f"{definition.label} 건설 완료"
         save.logs = [log, *save.logs][:5]
-        await repo.put(request.user.kakao_user_key, save)
+        await repo.put(request.user.id, save)
 
         return GameResult(
             message=f"{definition.label}을 건설했습니다. 예산 -{definition.cost}G / {definition.description}",
@@ -168,7 +168,7 @@ class GameEngine:
         )
 
     async def department_menu(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         options = []
         for department_id, definition in DEPARTMENTS.items():
             opened = department_id in save.departments
@@ -183,7 +183,7 @@ class GameEngine:
         )
 
     async def department(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         department_id = self._extract_department_id(request)
         if department_id is None:
             return self._error("잘못된 학과 요청입니다.", "INVALID_ACTION")
@@ -204,7 +204,7 @@ class GameEngine:
         setattr(save.reputation, definition.field, current_value + definition.reputation_bonus)
         log = f"{definition.label} 개설 완료"
         save.logs = [log, *save.logs][:5]
-        await repo.put(request.user.kakao_user_key, save)
+        await repo.put(request.user.id, save)
 
         return GameResult(
             message=f"{definition.label}를 개설했습니다. 예산 -{definition.cost}G / {definition.description}",
@@ -214,7 +214,7 @@ class GameEngine:
         )
 
     async def admission_menu(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         return GameResult(
             message=(
                 f"현재 입학 정책은 {self._policy_label(save.admission_policy)}입니다. "
@@ -225,7 +225,7 @@ class GameEngine:
         )
 
     async def admission(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         policy = self._extract_policy(request)
         if policy is None:
             return self._error("잘못된 입학 정책 요청입니다.", "INVALID_POLICY")
@@ -239,7 +239,7 @@ class GameEngine:
         save.admission_criteria = criteria_presets[policy]
         log = f"입학 정책 변경: {self._policy_label(policy)}"
         save.logs = [log, *save.logs][:5]
-        await repo.put(request.user.kakao_user_key, save)
+        await repo.put(request.user.id, save)
 
         return GameResult(
             message=(
@@ -252,7 +252,7 @@ class GameEngine:
         )
 
     async def logs(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
-        save = await self._get_or_create(request.user.kakao_user_key, repo)
+        save = await self._get_or_create(request.user.id, repo)
         return GameResult(
             message="최근 운영 기록입니다.",
             logs=save.logs[:5],
