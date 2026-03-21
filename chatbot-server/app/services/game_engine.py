@@ -15,6 +15,7 @@ from app.models.schemas import (
     StudentState,
 )
 from app.repositories.base import SaveRepository
+from app.services.image_service import ImageGenerator, NullImageGenerator, PromptBuilder
 
 
 MONTH_LABELS = {
@@ -71,13 +72,20 @@ DEPARTMENTS: dict[DepartmentId, DepartmentDefinition] = {
 
 
 class GameEngine:
+    def __init__(self, image_generator: ImageGenerator | None = None) -> None:
+        self._image_gen = image_generator or NullImageGenerator()
+
     async def start_game(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
         save = self._initial_save(request.user.kakao_user_key)
         await repo.put(request.user.kakao_user_key, save)
+        prompt, neg = PromptBuilder.build("start_game", "", save.month)
+        image_url = await self._image_gen.generate(prompt, neg)
         return GameResult(
             message="작은 대학 운영이 시작되었습니다. 현재 1년 1월 / 예산 480G / 총 명성 30",
             quickReplies=["내 대학 현황", "건물 건설", "학과 개설", "다음 달 진행"],
             save=save,
+            imageUrl=image_url,
+            imageTitle="🎓 대학교 설립!",
         )
 
     async def load_status(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
@@ -160,11 +168,15 @@ class GameEngine:
         save.logs = [log, *save.logs][:5]
         await repo.put(request.user.kakao_user_key, save)
 
+        prompt, neg = PromptBuilder.build("building", building_type, save.month)
+        image_url = await self._image_gen.generate(prompt, neg)
         return GameResult(
             message=f"{definition.label}을 건설했습니다. 예산 -{definition.cost}G / {definition.description}",
             quickReplies=["계속 건설", "내 대학 현황", "다음 달 진행"],
             logs=[log],
             save=save,
+            imageUrl=image_url,
+            imageTitle=f"🏗️ {definition.label} 건설!",
         )
 
     async def department_menu(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
@@ -206,11 +218,15 @@ class GameEngine:
         save.logs = [log, *save.logs][:5]
         await repo.put(request.user.kakao_user_key, save)
 
+        prompt, neg = PromptBuilder.build("department", department_id, save.month)
+        image_url = await self._image_gen.generate(prompt, neg)
         return GameResult(
             message=f"{definition.label}를 개설했습니다. 예산 -{definition.cost}G / {definition.description}",
             quickReplies=["다른 학과 보기", "내 대학 현황", "다음 달 진행"],
             logs=[log],
             save=save,
+            imageUrl=image_url,
+            imageTitle=f"📚 {definition.label} 개설!",
         )
 
     async def admission_menu(self, request: KakaoWebhookRequest, repo: SaveRepository) -> GameResult:
@@ -415,4 +431,4 @@ class GameEngine:
         )
 
 
-game_engine = GameEngine()
+game_engine = GameEngine()  # Uses NullImageGenerator by default

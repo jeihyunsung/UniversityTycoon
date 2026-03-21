@@ -96,3 +96,67 @@ class TestKarloImageGenerator:
             result = await karlo.generate("test prompt")
 
         assert result is None
+
+
+from app.services.game_engine import GameEngine
+from app.repositories.in_memory import InMemorySaveRepository
+from tests.conftest import make_webhook
+
+
+class TestGameEngineImageIntegration:
+    @pytest.mark.asyncio
+    async def test_start_game_sets_image_url_with_generator(self) -> None:
+        mock_gen = AsyncMock()
+        mock_gen.generate.return_value = "https://example.com/campus.png"
+        engine = GameEngine(image_generator=mock_gen)
+        repo = InMemorySaveRepository()
+
+        webhook = make_webhook("test-user")
+        result = await engine.start_game(webhook, repo)
+
+        assert result.image_url == "https://example.com/campus.png"
+        assert result.image_title is not None
+        mock_gen.generate.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_build_sets_image_url(self) -> None:
+        mock_gen = AsyncMock()
+        mock_gen.generate.return_value = "https://example.com/classroom.png"
+        engine = GameEngine(image_generator=mock_gen)
+        repo = InMemorySaveRepository()
+
+        webhook = make_webhook("test-user")
+        await engine.start_game(webhook, repo)
+        build_webhook = make_webhook("test-user", action_name="ACTION_BUILD_CLASSROOM")
+        result = await engine.build(build_webhook, repo)
+
+        assert result.image_url == "https://example.com/classroom.png"
+
+    @pytest.mark.asyncio
+    async def test_department_sets_image_url(self) -> None:
+        mock_gen = AsyncMock()
+        mock_gen.generate.return_value = "https://example.com/art.png"
+        engine = GameEngine(image_generator=mock_gen)
+        repo = InMemorySaveRepository()
+
+        webhook = make_webhook("test-user")
+        await engine.start_game(webhook, repo)
+        dept_webhook = make_webhook("test-user", action_name="ACTION_DEPT_ART")
+        result = await engine.department(dept_webhook, repo)
+
+        assert result.image_url == "https://example.com/art.png"
+
+    @pytest.mark.asyncio
+    async def test_build_works_when_image_generation_fails(self) -> None:
+        mock_gen = AsyncMock()
+        mock_gen.generate.return_value = None
+        engine = GameEngine(image_generator=mock_gen)
+        repo = InMemorySaveRepository()
+
+        webhook = make_webhook("test-user")
+        await engine.start_game(webhook, repo)
+        build_webhook = make_webhook("test-user", action_name="ACTION_BUILD_CLASSROOM")
+        result = await engine.build(build_webhook, repo)
+
+        assert result.ok is True
+        assert result.image_url is None
