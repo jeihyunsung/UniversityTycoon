@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, Integer, JSON, String
+from sqlalchemy import Boolean, DateTime, Float, Integer, JSON, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -42,6 +42,11 @@ class GameSaveRow(Base):
 
     pending_event: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
     bonus_freshmen: Mapped[int] = mapped_column(Integer, default=0)
+    completed_milestones: Mapped[list] = mapped_column(JSON, default=list)
+    active_quest_lines: Mapped[list] = mapped_column(JSON, default=list)
+    completed_quests: Mapped[list] = mapped_column(JSON, default=list)
+    title: Mapped[str] = mapped_column(String(64), default="신생 대학")
+    admission_changed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False

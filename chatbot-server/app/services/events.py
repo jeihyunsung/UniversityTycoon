@@ -171,13 +171,13 @@ def compute_education_power(save: SaveState) -> int:
     return save.buildings.classroom * 8 + save.buildings.cafeteria * 2 + dept_boost
 
 
-def _total_buildings(save: SaveState) -> int:
+def total_buildings(save: SaveState) -> int:
     """Sum all building counts across all building types."""
     b = save.buildings
     return b.classroom + b.dormitory + b.laboratory + b.cafeteria
 
 
-def _total_reputation(save: SaveState) -> int:
+def total_reputation(save: SaveState) -> int:
     """Sum all reputation field values."""
     r = save.reputation
     return r.arts + r.engineering + r.medical + r.humanities
@@ -207,13 +207,13 @@ def _check_conditions(event: EventDefinition, save: SaveState) -> bool:
             if save.buildings.cafeteria < threshold:
                 return False
         elif key == "min_buildings":
-            if _total_buildings(save) < threshold:
+            if total_buildings(save) < threshold:
                 return False
         elif key == "min_students":
             if save.students.enrolled < threshold:
                 return False
         elif key == "min_reputation":
-            if _total_reputation(save) < threshold:
+            if total_reputation(save) < threshold:
                 return False
         elif key == "min_education_power":
             if compute_education_power(save) < threshold:
@@ -221,7 +221,7 @@ def _check_conditions(event: EventDefinition, save: SaveState) -> bool:
     return True
 
 
-def _leading_field(save: SaveState) -> str:
+def leading_field(save: SaveState) -> str:
     """Return the reputation field name with the highest value.
 
     Args:
@@ -282,7 +282,7 @@ def _apply_effects(save: SaveState, effects: dict[str, int]) -> list[str]:
             save.bonus_freshmen += value
             logs.append(f"입학 지원자 보너스 +{value}명")
         elif key == "reputation_leading":
-            field = _leading_field(save)
+            field = leading_field(save)
             current = getattr(save.reputation, field)
             setattr(save.reputation, field, max(0, current + value))
             logs.append(f"선도 분야({field}) 명성 {value:+}")
