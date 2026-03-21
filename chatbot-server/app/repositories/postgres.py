@@ -74,6 +74,8 @@ class PostgresSaveRepository(SaveRepository):
         row.buildings = save.buildings.model_dump()
         row.departments = list(save.departments)
         row.logs = list(save.logs)
+        row.pending_event = save.pending_event
+        row.bonus_freshmen = save.bonus_freshmen
         row.updated_at = datetime.now(tz=timezone.utc)
 
         await self._session.flush()
@@ -112,5 +114,7 @@ class PostgresSaveRepository(SaveRepository):
                 "buildings": row.buildings,
                 "departments": row.departments,
                 "logs": row.logs,
+                "pendingEvent": row.pending_event,
+                "bonusFreshmen": row.bonus_freshmen,
             }
         )

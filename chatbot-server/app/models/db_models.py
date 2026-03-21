@@ -40,6 +40,9 @@ class GameSaveRow(Base):
     departments: Mapped[list] = mapped_column(JSON, nullable=False)
     logs: Mapped[list] = mapped_column(JSON, nullable=False)
 
+    pending_event: Mapped[str | None] = mapped_column(String(64), nullable=True, default=None)
+    bonus_freshmen: Mapped[int] = mapped_column(Integer, default=0)
+
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )

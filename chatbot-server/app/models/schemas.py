@@ -85,6 +85,8 @@ class SaveState(BaseModel):
     admission_criteria: AdmissionCriteria = Field(
         default_factory=AdmissionCriteria, alias="admissionCriteria"
     )
+    pending_event: str | None = Field(default=None, alias="pendingEvent")
+    bonus_freshmen: int = Field(default=0, alias="bonusFreshmen")
 
 
 class GameResult(BaseModel):
