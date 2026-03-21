@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Protocol
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+KARLO_API_URL = "https://api.kakaobrain.com/v2/inference/karlo/t2i"
 
 
 MASTER_STYLE = "cute mobile tycoon game art, pastel palette, rounded toy-like shapes"
@@ -88,3 +95,37 @@ class PromptBuilder:
 
         prompt = f"{subject}, {season_text}, {MASTER_STYLE}"
         return (prompt, NEGATIVE_PROMPT)
+
+
+class KarloImageGenerator:
+    """Image generator using Kakao Karlo API."""
+
+    def __init__(self, api_key: str, timeout: int = 4) -> None:
+        self._api_key = api_key
+        self._timeout = timeout
+
+    async def generate(self, prompt: str, negative_prompt: str = "") -> str | None:
+        """Call Karlo API and return the generated image URL."""
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                resp = await client.post(
+                    KARLO_API_URL,
+                    headers={
+                        "Authorization": f"KakaoAK {self._api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "version": "v2.1",
+                        "prompt": prompt,
+                        "negative_prompt": negative_prompt,
+                        "width": 512,
+                        "height": 512,
+                        "samples": 1,
+                    },
+                )
+                await resp.raise_for_status()
+                data = await resp.json()
+                return data["images"][0]["image"]
+        except Exception:
+            logger.warning("Karlo image generation failed", exc_info=True)
+            return None
