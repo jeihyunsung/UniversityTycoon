@@ -65,7 +65,7 @@ class ImageGenerator(Protocol):
 class KarloImageGenerator:
     """카카오 Karlo API를 사용한 이미지 생성. httpx.AsyncClient 사용."""
 
-    def __init__(self, api_key: str, timeout: int = 10):
+    def __init__(self, api_key: str, timeout: int = 4):
         self._api_key = api_key
         self._timeout = timeout
 
@@ -209,7 +209,7 @@ def to_kakao_response(result: GameResult) -> dict:
 ```python
 karlo_api_key: str = ""              # UT_KARLO_API_KEY
 image_generation_enabled: bool = True # UT_IMAGE_ENABLED
-karlo_timeout: int = 10              # UT_KARLO_TIMEOUT (초)
+karlo_timeout: int = 4               # UT_KARLO_TIMEOUT (초, 카카오 5초 제한 고려)
 ```
 
 ### 6. 의존성 주입 (`app/main.py`)
