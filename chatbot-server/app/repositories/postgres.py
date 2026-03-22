@@ -83,7 +83,7 @@ class PostgresSaveRepository(SaveRepository):
         row.admission_changed = save.admission_changed
         row.updated_at = datetime.now(tz=timezone.utc)
 
-        await self._session.flush()
+        await self._session.commit()
         return save
 
     @staticmethod
