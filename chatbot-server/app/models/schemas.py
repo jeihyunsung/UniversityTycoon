@@ -23,6 +23,7 @@ class UserRequest(BaseModel):
     block: dict[str, Any] = Field(default_factory=dict)
     params: dict[str, Any] = Field(default_factory=dict)
     lang: str | None = None
+    callback_url: str | None = Field(default=None, alias="callbackUrl")
 
 
 class ActionPayload(BaseModel):
@@ -104,3 +105,5 @@ class GameResult(BaseModel):
     save: SaveState | None = None
     image_url: str | None = Field(default=None, alias="imageUrl")
     image_title: str | None = Field(default=None, alias="imageTitle")
+    image_prompt: str | None = Field(default=None, alias="imagePrompt")
+    image_negative_prompt: str | None = Field(default=None, alias="imageNegativePrompt")

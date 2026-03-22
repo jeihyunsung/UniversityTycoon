@@ -6,8 +6,8 @@ class Settings(BaseSettings):
     use_db: bool = False
     openai_api_key: str = ""
     image_generation_enabled: bool = True
-    image_timeout: int = 10
-    model_config = {"env_prefix": "UT_"}
+    image_timeout: int = 30
+    model_config = {"env_prefix": "UT_", "env_file": ".env"}
 
     @property
     def async_database_url(self) -> str:

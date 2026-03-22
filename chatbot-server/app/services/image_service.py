@@ -5,12 +5,14 @@ from __future__ import annotations
 import logging
 from typing import Protocol
 
+import time
+
 import httpx
 
 logger = logging.getLogger(__name__)
 
 
-MASTER_STYLE = "cute mobile tycoon game art, pastel palette, rounded toy-like shapes"
+MASTER_STYLE = "3D isometric anime style, ornate and lavish university building, rich details, vibrant colors, dramatic lighting, small centered building with very large empty sky and ground margins, zoomed out, lots of negative space around the building"
 NEGATIVE_PROMPT = "realistic, photorealistic, dark, gritty, text, watermark"
 
 BUILDING_PROMPTS = {
@@ -104,6 +106,7 @@ class DalleImageGenerator:
 
     async def generate(self, prompt: str, negative_prompt: str = "") -> str | None:
         """Call OpenAI Images API and return the generated image URL."""
+        start = time.monotonic()
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 resp = await client.post(
@@ -113,15 +116,19 @@ class DalleImageGenerator:
                         "Content-Type": "application/json",
                     },
                     json={
-                        "model": "dall-e-3",
+                        "model": "dall-e-2",
                         "prompt": prompt,
                         "n": 1,
-                        "size": "1024x1024",
+                        "size": "512x512",
                     },
                 )
                 resp.raise_for_status()
                 data = resp.json()
-                return data["data"][0]["url"]
+                elapsed = time.monotonic() - start
+                url = data["data"][0]["url"]
+                logger.info("DALL-E image generated in %.2fs: %s", elapsed, url[:80])
+                return url
         except Exception:
-            logger.warning("DALL-E image generation failed", exc_info=True)
+            elapsed = time.monotonic() - start
+            logger.warning("DALL-E image generation failed after %.2fs", elapsed, exc_info=True)
             return None

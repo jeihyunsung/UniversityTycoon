@@ -1,13 +1,32 @@
+import logging
+
 from fastapi import APIRouter, Depends
 
 from app.api.deps import get_game_engine, get_repository
-from app.models.schemas import KakaoWebhookRequest
+from app.models.schemas import GameResult, KakaoWebhookRequest
 from app.repositories.base import SaveRepository
+from app.services.callback import schedule_callback
 from app.services.game_engine import GameEngine
 from app.services.kakao_adapter import to_kakao_response
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+CALLBACK_RESPONSE = {"version": "2.0", "useCallback": True}
+
+
+def _respond(
+    result: GameResult,
+    request: KakaoWebhookRequest,
+    game_engine: GameEngine,
+) -> dict:
+    """Return immediate response or trigger callback for image generation."""
+    callback_url = request.user_request.callback_url
+    if result.image_prompt and callback_url:
+        schedule_callback(callback_url, result, game_engine._image_gen)
+        return CALLBACK_RESPONSE
+    return to_kakao_response(result)
 
 
 @router.post("/start-game")
@@ -17,7 +36,7 @@ async def start_game(
     game_engine: GameEngine = Depends(get_game_engine),
 ) -> dict:
     result = await game_engine.start_game(request, repo)
-    return to_kakao_response(result)
+    return _respond(result, request, game_engine)
 
 
 @router.post("/status")
@@ -57,7 +76,7 @@ async def build(
     game_engine: GameEngine = Depends(get_game_engine),
 ) -> dict:
     result = await game_engine.build(request, repo)
-    return to_kakao_response(result)
+    return _respond(result, request, game_engine)
 
 
 @router.post("/department-menu")
@@ -77,7 +96,7 @@ async def department(
     game_engine: GameEngine = Depends(get_game_engine),
 ) -> dict:
     result = await game_engine.department(request, repo)
-    return to_kakao_response(result)
+    return _respond(result, request, game_engine)
 
 
 @router.post("/admission-menu")

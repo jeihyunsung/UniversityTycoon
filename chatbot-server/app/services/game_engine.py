@@ -82,12 +82,12 @@ class GameEngine:
         save = self._initial_save(request.user.id)
         await repo.put(request.user.id, save)
         prompt, neg = PromptBuilder.build("start_game", "", save.month)
-        image_url = await self._image_gen.generate(prompt, neg)
         return GameResult(
             message="작은 대학 운영이 시작되었습니다. 현재 1년 1월 / 예산 480G / 총 명성 30",
             quickReplies=["내 대학 현황", "건물 건설", "학과 개설", "다음 달 진행"],
             save=save,
-            imageUrl=image_url,
+            imagePrompt=prompt,
+            imageNegativePrompt=neg,
             imageTitle="🎓 대학교 설립!",
         )
 
@@ -208,13 +208,13 @@ class GameEngine:
         await repo.put(request.user.id, save)
 
         prompt, neg = PromptBuilder.build("building", building_type, save.month)
-        image_url = await self._image_gen.generate(prompt, neg)
         return GameResult(
             message=f"{definition.label}을 건설했습니다. 예산 -{definition.cost}G / {definition.description}",
             quickReplies=["계속 건설", "내 대학 현황", "다음 달 진행"],
             logs=log_entries,
             save=save,
-            imageUrl=image_url,
+            imagePrompt=prompt,
+            imageNegativePrompt=neg,
             imageTitle=f"🏗️ {definition.label} 건설!",
         )
 
@@ -263,13 +263,13 @@ class GameEngine:
         await repo.put(request.user.id, save)
 
         prompt, neg = PromptBuilder.build("department", department_id, save.month)
-        image_url = await self._image_gen.generate(prompt, neg)
         return GameResult(
             message=f"{definition.label}를 개설했습니다. 예산 -{definition.cost}G / {definition.description}",
             quickReplies=["다른 학과 보기", "내 대학 현황", "다음 달 진행"],
             logs=log_entries,
             save=save,
-            imageUrl=image_url,
+            imagePrompt=prompt,
+            imageNegativePrompt=neg,
             imageTitle=f"📚 {definition.label} 개설!",
         )
 
